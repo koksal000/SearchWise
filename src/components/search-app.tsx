@@ -107,7 +107,7 @@ export function SearchApp() {
     } finally {
       setIsLoading(false);
     }
-  }, [settings, addToHistory, toast]);
+  }, [settings.saveHistory, settings.safeSearch, settings.inAppWebView, settings.filterInAppFriendly, addToHistory, toast]);
 
 
   useEffect(() => {
