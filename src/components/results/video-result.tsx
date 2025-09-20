@@ -10,9 +10,23 @@ type VideoResultProps = {
   onResultClick: (url: string, title: string) => void;
 };
 
+function isValidHttpUrl(string: string) {
+  let url;
+  try {
+    url = new URL(string);
+  } catch (_) {
+    return false;  
+  }
+  return url.protocol === "http:" || url.protocol === "https:";
+}
+
 export function VideoResult({ item, onResultClick }: VideoResultProps) {
-  const imageUrl = item.coverImageUrl || item.pagemap?.cse_thumbnail?.[0]?.src;
+  let imageUrl = item.coverImageUrl || item.pagemap?.cse_thumbnail?.[0]?.src;
   
+  if (imageUrl && !isValidHttpUrl(imageUrl)) {
+    imageUrl = undefined;
+  }
+
   // A direct link to an MP4 or similar is a video, otherwise it's a webpage with a video.
   const isDirectVideoLink = item.videoUrl?.match(/\.(mp4|webm|ogg)$/);
 
