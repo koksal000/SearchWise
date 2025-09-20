@@ -5,7 +5,6 @@ import { Button } from './ui/button';
 import { useRef, useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { TabItem } from '@/lib/types';
-import { fetchUrlContent } from '@/app/actions';
 
 type WebViewerProps = {
   tab: TabItem | undefined;
@@ -15,35 +14,28 @@ type WebViewerProps = {
 export function WebViewer({ tab, onClose }: WebViewerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [currentUrl, setCurrentUrl] = useState(tab?.url || '');
-  const [viewKey, setViewKey] = useState(Date.now()); // to force re-render
+  const [viewKey, setViewKey] = useState(Date.now());
 
   useEffect(() => {
-    if (!tab) return;
-    
-    const loadContent = async () => {
-        setIsLoading(true);
-        setError(null);
-        setCurrentUrl(tab.url);
-
-        const result = await fetchUrlContent(tab.url);
-        
-        if ('error' in result) {
-            setError(result.error);
-        } else {
-            const iframe = iframeRef.current;
-            if (iframe) {
-                iframe.srcdoc = result.content;
-                setCurrentUrl(result.finalUrl);
-            }
-        }
-        setIsLoading(false);
-    };
-
-    loadContent();
+    if (tab) {
+      setIsLoading(true);
+      setCurrentUrl(tab.url);
+    }
   }, [tab, viewKey]);
 
+  const handleLoad = () => {
+    setIsLoading(false);
+    try {
+        const iframeUrl = iframeRef.current?.contentWindow?.location.href;
+        if (iframeUrl && iframeUrl !== 'about:blank') {
+            setCurrentUrl(iframeUrl);
+        }
+    } catch (e) {
+        console.warn('Could not access iframe URL due to cross-origin restrictions.');
+    }
+  };
+  
   const reload = () => {
     setViewKey(Date.now());
   };
@@ -74,20 +66,15 @@ export function WebViewer({ tab, onClose }: WebViewerProps) {
                 <Loader2 className="h-8 w-8 animate-spin text-primary"/>
             </div>
         )}
-        {error && !isLoading && (
-             <div className="absolute inset-0 flex flex-col items-center justify-center bg-background z-10 p-8 text-center">
-                <ExternalLink className="h-16 w-16 text-destructive/50 mb-4"/>
-                <h3 className="text-xl font-semibold">Could not load page</h3>
-                <p className="text-muted-foreground mt-2 max-w-md">{error}</p>
-                <Button className="mt-6" onClick={() => window.open(tab.url, '_blank')}>Open in New Tab</Button>
-            </div>
-        )}
         <iframe
+          key={viewKey}
           ref={iframeRef}
+          src={tab.url}
+          onLoad={handleLoad}
           title={tab.title}
           className="h-full w-full border-0"
           sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-presentation"
-          style={{ visibility: isLoading || error ? 'hidden' : 'visible' }}
+          style={{ visibility: isLoading ? 'hidden' : 'visible' }}
         />
       </div>
     </div>
