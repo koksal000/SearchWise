@@ -42,13 +42,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   },[setSettings]);
 
   const setInAppWebView = useCallback((value: boolean) => {
-    setSettings(prev => {
-      // If the user is disabling the in-app web view, also disable the filtering option.
-      if (!value) {
-        return { ...prev, inAppWebView: false, filterInAppFriendly: false };
-      }
-      return { ...prev, inAppWebView: true };
-    });
+    setSettings(prev => ({ ...prev, inAppWebView: value }));
   },[setSettings]);
 
   const setSaveHistory = useCallback((value: boolean) => {
