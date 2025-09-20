@@ -110,3 +110,37 @@ export async function searchVideos({ query, page, safe }: SearchParams): Promise
 
   return { ...searchResult, items: itemsWithVideoData };
 }
+
+export async function fetchUrlContent(url: string): Promise<{ content: string; finalUrl: string } | { error: string }> {
+    try {
+        const response = await fetch(url, { 
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            },
+            redirect: 'follow'
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch URL with status: ${response.status}`);
+        }
+
+        const content = await response.text();
+        
+        // Inject a <base> tag to fix relative links
+        const finalUrl = response.url;
+        const headEnd = content.indexOf('</head>');
+        if (headEnd !== -1) {
+            const baseTag = `<base href="${finalUrl}">`;
+            const newContent = content.slice(0, headEnd) + baseTag + content.slice(headEnd);
+            return { content: newContent, finalUrl };
+        }
+
+        return { content, finalUrl };
+    } catch (error) {
+        console.error('Fetch URL content error:', error);
+        if (error instanceof Error) {
+            return { error: error.message };
+        }
+        return { error: 'An unknown error occurred while fetching the URL content.' };
+    }
+}
