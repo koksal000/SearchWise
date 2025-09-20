@@ -36,6 +36,22 @@ const BLOCKED_DOMAINS = [
     'microsoft.com',
   ];
 
+function filterInAppFriendlyResults<T extends { link: string }>(items: T[], shouldFilter: boolean): T[] {
+    if (!shouldFilter) {
+      return items;
+    }
+  
+    return items.filter(item => {
+      try {
+        const domain = new URL(item.link).hostname;
+        // Check if the domain or any of its subdomains are in the blocked list.
+        return !BLOCKED_DOMAINS.some(blockedDomain => domain === blockedDomain || domain.endsWith(`.${blockedDomain}`));
+      } catch {
+        return true; // Keep malformed URLs to let the user decide
+      }
+    });
+}
+
 export function SearchApp() {
   const [view, setView] = useState<View>('home');
   const [query, setQuery] = useState('');
@@ -51,7 +67,7 @@ export function SearchApp() {
   const [isTabsPanelOpen, setTabsPanelOpen] = useState(false);
   const [isImageSearchDialogOpen, setImageSearchDialogOpen] = useState(false);
   
-  const { settings, setSettings } = useSettings();
+  const { settings } = useSettings();
   const { addToHistory } = useHistory();
   const { activeTab, addTab, setActiveTab, getTabById } = useTabs();
   const { toast } = useToast();
@@ -77,38 +93,35 @@ export function SearchApp() {
     try {
       let response;
       const safe = settings.safeSearch ? 'active' : 'off';
+      const shouldFilter = settings.inAppWebView && settings.filterInAppFriendly;
       
       switch (filter) {
         case 'images':
           response = await searchImages({ query: searchQuery, page, safe });
+          if (response.items) response.items = filterInAppFriendlyResults(response.items, shouldFilter);
           break;
         case 'videos':
           response = await searchVideos({ query: searchQuery, page, safe });
+          if ('items' in response && response.items) {
+            response.items = filterInAppFriendlyResults(response.items, shouldFilter);
+          }
           break;
         case 'news':
-          response = await searchNews({ query: searchQuery, page, safe });
-          break;
+            response = await searchNews({ query: searchQuery, page, safe });
+            if (response.items) response.items = filterInAppFriendlyResults(response.items, shouldFilter);
+            break;
         case 'all':
         default:
           response = await search({ query: searchQuery, page, safe });
+          if (response.items) response.items = filterInAppFriendlyResults(response.items, shouldFilter);
           break;
       }
 
-      if (response.error) {
+      if ('error' in response) {
         throw new Error(response.error);
       }
       
-      let items = response.items || [];
-      if (settings.inAppWebView && settings.filterInAppFriendly) {
-        items = items.filter(item => {
-            try {
-                const domain = new URL(item.link).hostname;
-                return !BLOCKED_DOMAINS.some(blocked => domain.includes(blocked));
-            } catch {
-                return true; // Keep malformed URLs to let the user decide
-            }
-        });
-      }
+      const items = response.items || [];
 
       setResults(items);
       if (response.searchInformation) {
