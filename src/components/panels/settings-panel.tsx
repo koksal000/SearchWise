@@ -17,7 +17,7 @@ type SettingsPanelProps = {
 };
 
 export function SettingsPanel({ isOpen, onOpenChange }: SettingsPanelProps) {
-  const { settings, toggleTheme, setSafeSearch, setInAppWebView, setSaveHistory } = useSettings();
+  const { settings, toggleTheme, setSafeSearch, setInAppWebView, setSaveHistory, setFilterInAppFriendly } = useSettings();
 
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
@@ -50,16 +50,6 @@ export function SettingsPanel({ isOpen, onOpenChange }: SettingsPanelProps) {
             />
           </div>
           <div className="flex items-center justify-between">
-            <Label htmlFor="in-app-view" className="text-base">
-              Open links in-app
-            </Label>
-            <Switch
-              id="in-app-view"
-              checked={settings.inAppWebView}
-              onCheckedChange={setInAppWebView}
-            />
-          </div>
-          <div className="flex items-center justify-between">
             <Label htmlFor="save-history" className="text-base">
               Save Search History
             </Label>
@@ -68,6 +58,33 @@ export function SettingsPanel({ isOpen, onOpenChange }: SettingsPanelProps) {
               checked={settings.saveHistory}
               onCheckedChange={setSaveHistory}
             />
+          </div>
+          <div className="flex flex-col gap-2 rounded-lg border p-4">
+             <div className="flex items-center justify-between">
+                <Label htmlFor="in-app-view" className="text-base">
+                Open links in-app
+                </Label>
+                <Switch
+                id="in-app-view"
+                checked={settings.inAppWebView}
+                onCheckedChange={setInAppWebView}
+                />
+            </div>
+            <p className="text-sm text-muted-foreground">
+                When enabled, links will open inside the app. Some sites may not work correctly.
+            </p>
+            {settings.inAppWebView && (
+                 <div className="flex items-center justify-between pt-2">
+                    <Label htmlFor="filter-in-app" className="text-base pr-4">
+                        Filter for in-app view
+                    </Label>
+                    <Switch
+                    id="filter-in-app"
+                    checked={settings.filterInAppFriendly}
+                    onCheckedChange={setFilterInAppFriendly}
+                    />
+                </div>
+            )}
           </div>
         </div>
       </SheetContent>

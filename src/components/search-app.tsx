@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, FormEvent, useRef } from 'react';
+import { useState, useEffect, FormEvent, useRef, useCallback } from 'react';
 import { useSettings } from '@/hooks/use-settings';
 import { useHistory } from '@/hooks/use-history';
 import { useTabs } from '@/hooks/use-tabs';
@@ -22,6 +22,20 @@ import { ImageSearchDialog } from './image-search-dialog';
 
 type View = 'home' | 'results';
 
+// Domains known to block iframe embedding
+const BLOCKED_DOMAINS = [
+    'google.com',
+    'youtube.com',
+    'facebook.com',
+    'instagram.com',
+    'twitter.com',
+    'linkedin.com',
+    'wikipedia.org',
+    'amazon.com',
+    'apple.com',
+    'microsoft.com',
+  ];
+
 export function SearchApp() {
   const [view, setView] = useState<View>('home');
   const [query, setQuery] = useState('');
@@ -37,13 +51,82 @@ export function SearchApp() {
   const [isTabsPanelOpen, setTabsPanelOpen] = useState(false);
   const [isImageSearchDialogOpen, setImageSearchDialogOpen] = useState(false);
   
-  const { settings } = useSettings();
+  const { settings, setSettings } = useSettings();
   const { addToHistory } = useHistory();
   const { activeTab, addTab, setActiveTab, getTabById } = useTabs();
   const { toast } = useToast();
 
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+
+  const handleSearch = useCallback(async (searchQuery: string, page: number = 1, filter: SearchType = 'all') => {
+    if (!searchQuery.trim()) return;
+
+    setIsLoading(true);
+    setView('results');
+    setResults(null);
+    setSearchInfo('');
+    setCurrentPage(page);
+    setActiveFilter(filter);
+    setActiveQuery(searchQuery);
+    
+    if (settings.saveHistory) {
+      addToHistory(searchQuery);
+    }
+
+    try {
+      let response;
+      const safe = settings.safeSearch ? 'active' : 'off';
+      
+      switch (filter) {
+        case 'images':
+          response = await searchImages({ query: searchQuery, page, safe });
+          break;
+        case 'videos':
+          response = await searchVideos({ query: searchQuery, page, safe });
+          break;
+        case 'news':
+          response = await searchNews({ query: searchQuery, page, safe });
+          break;
+        case 'all':
+        default:
+          response = await search({ query: searchQuery, page, safe });
+          break;
+      }
+
+      if (response.error) {
+        throw new Error(response.error);
+      }
+      
+      let items = response.items || [];
+      if (settings.inAppWebView && settings.filterInAppFriendly) {
+        items = items.filter(item => {
+            try {
+                const domain = new URL(item.link).hostname;
+                return !BLOCKED_DOMAINS.some(blocked => domain.includes(blocked));
+            } catch {
+                return true; // Keep malformed URLs to let the user decide
+            }
+        });
+      }
+
+      setResults(items);
+      if (response.searchInformation) {
+        setSearchInfo(`About ${response.searchInformation.formattedTotalResults} results (${response.searchInformation.formattedSearchTime} seconds)`);
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      toast({
+        variant: "destructive",
+        title: "Search Failed",
+        description: error instanceof Error ? error.message : "An unknown error occurred.",
+      });
+      setResults([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [settings, addToHistory, toast]);
+
 
   useEffect(() => {
     if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
@@ -67,7 +150,7 @@ export function SearchApp() {
       };
       recognitionRef.current = recognition;
     }
-  }, [activeFilter, toast]);
+  }, [activeFilter, toast, handleSearch]);
 
   const handleVoiceSearch = () => {
     if (recognitionRef.current && !isListening) {
@@ -116,62 +199,6 @@ export function SearchApp() {
   };
 
   const currentTab = getTabById(activeTab || '');
-
-  const handleSearch = async (searchQuery: string, page: number = 1, filter: SearchType = 'all') => {
-    if (!searchQuery.trim()) return;
-
-    setIsLoading(true);
-    setView('results');
-    setResults(null);
-    setSearchInfo('');
-    setCurrentPage(page);
-    setActiveFilter(filter);
-    setActiveQuery(searchQuery);
-    
-    if (settings.saveHistory) {
-      addToHistory(searchQuery);
-    }
-
-    try {
-      let response;
-      const safe = settings.safeSearch ? 'active' : 'off';
-      
-      switch (filter) {
-        case 'images':
-          response = await searchImages({ query: searchQuery, page, safe });
-          break;
-        case 'videos':
-          response = await searchVideos({ query: searchQuery, page, safe });
-          break;
-        case 'news':
-          response = await searchNews({ query: searchQuery, page, safe });
-          break;
-        case 'all':
-        default:
-          response = await search({ query: searchQuery, page, safe });
-          break;
-      }
-
-      if (response.error) {
-        throw new Error(response.error);
-      }
-      
-      setResults(response.items || []);
-      if (response.searchInformation) {
-        setSearchInfo(`About ${response.searchInformation.formattedTotalResults} results (${response.searchInformation.formattedSearchTime} seconds)`);
-      }
-    } catch (error) {
-      console.error('Search error:', error);
-      toast({
-        variant: "destructive",
-        title: "Search Failed",
-        description: error instanceof Error ? error.message : "An unknown error occurred.",
-      });
-      setResults([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const submitSearch = (e: FormEvent) => {
     e.preventDefault();

@@ -12,6 +12,17 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useTabs } from '@/hooks/use-tabs';
 import { X, Globe, Trash2 } from 'lucide-react';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+  } from "@/components/ui/alert-dialog"
 
 type TabsPanelProps = {
   isOpen: boolean;
@@ -34,12 +45,6 @@ export function TabsPanel({ isOpen, onOpenChange, onTabItemClick }: TabsPanelPro
   const handleItemClick = (id: string) => {
     onTabItemClick(id);
     onOpenChange(false);
-  };
-  
-  const handleClearTabs = () => {
-    if(confirm('Are you sure you want to close all tabs?')) {
-      clearAllTabs();
-    }
   };
 
   return (
@@ -96,10 +101,26 @@ export function TabsPanel({ isOpen, onOpenChange, onTabItemClick }: TabsPanelPro
         </div>
         {tabs.length > 0 && (
            <SheetFooter>
-            <Button variant="destructive" className="w-full" onClick={handleClearTabs}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                Close All Tabs
-            </Button>
+            <AlertDialog>
+                <AlertDialogTrigger asChild>
+                    <Button variant="destructive" className="w-full">
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Close All Tabs
+                    </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This will close all open tabs. This action cannot be undone.
+                    </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={clearAllTabs}>Continue</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
            </SheetFooter>
         )}
       </SheetContent>
