@@ -1,6 +1,6 @@
 'use client';
 
-import { Search, History, Settings, PanelsRightLeft, X } from 'lucide-react';
+import { Search, History, Settings, PanelsLeftRight, X } from 'lucide-react';
 import { Logo } from './logo';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
@@ -60,7 +60,7 @@ export function Header({
           <span className="sr-only">History</span>
         </Button>
         <Button variant="ghost" size="icon" onClick={onTabsClick} className="relative">
-          <PanelsRightLeft className="h-5 w-5" />
+          <PanelsLeftRight className="h-5 w-5" />
           <span className="sr-only">Tabs</span>
           {tabs.length > 0 && (
             <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">

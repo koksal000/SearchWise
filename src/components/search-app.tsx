@@ -52,7 +52,9 @@ export function SearchApp() {
     setActiveFilter(filter);
     setActiveQuery(searchQuery);
     
-    addToHistory(searchQuery);
+    if (settings.saveHistory) {
+      addToHistory(searchQuery);
+    }
 
     try {
       let response;
