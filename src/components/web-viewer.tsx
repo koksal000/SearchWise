@@ -18,6 +18,13 @@ export function WebViewer({ tab, onClose }: WebViewerProps) {
   const [canGoForward, setCanGoForward] = useState(false);
   const [iframeError, setIframeError] = useState(false);
 
+  const reloadIframe = () => {
+    if (iframeRef.current) {
+      // Setting src to itself is a way to reload an iframe without cross-origin issues
+      iframeRef.current.src = tab?.url || '';
+    }
+  }
+
   useEffect(() => {
     setIsLoading(true);
     setIframeError(false);
@@ -69,7 +76,7 @@ export function WebViewer({ tab, onClose }: WebViewerProps) {
           <Button variant="ghost" size="icon" disabled>
             <ArrowRight className="h-5 w-5" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => iframeRef.current?.contentWindow?.location.reload()} disabled={isLoading}>
+          <Button variant="ghost" size="icon" onClick={reloadIframe} disabled={isLoading}>
             <RotateCw className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
