@@ -42,7 +42,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   },[setSettings]);
 
   const setInAppWebView = useCallback((value: boolean) => {
-    setSettings(prev => ({ ...prev, inAppWebView: value }));
+    setSettings(prev => ({ ...prev, inAppWebView: value, filterInAppFriendly: value ? prev.filterInAppFriendly : false }));
   },[setSettings]);
 
   const setSaveHistory = useCallback((value: boolean) => {

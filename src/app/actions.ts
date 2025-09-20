@@ -1,6 +1,7 @@
 'use server';
 
 import { extractVideoData } from '@/ai/flows/extract-video-data-from-search-results';
+import { canBeIframed } from '@/ai/flows/can-be-iframed';
 import { SearchResults, ImageSearchResults, VideoSearchResultItem, SearchResultItem } from '@/lib/types';
 
 const API_KEY = process.env.GOOGLE_API_KEY || 'AIzaSyDk1707C4uD9cZo21JjL2ylFIrwkt6AxNY';
@@ -109,4 +110,14 @@ export async function searchVideos({ query, page, safe }: SearchParams): Promise
   const itemsWithVideoData = await Promise.all(videoDataPromises);
 
   return { ...searchResult, items: itemsWithVideoData };
+}
+
+export async function filterInAppFriendlyResults<T extends { link: string }>(items: T[]): Promise<T[]> {
+  const filterPromises = items.map(async item => {
+    const { canBeIframed: isFriendly } = await canBeIframed({ url: item.link });
+    return isFriendly ? item : null;
+  });
+
+  const filteredItems = (await Promise.all(filterPromises)).filter((item): item is T => item !== null);
+  return filteredItems;
 }

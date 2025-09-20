@@ -5,7 +5,7 @@ import { useSettings } from '@/hooks/use-settings';
 import { useHistory } from '@/hooks/use-history';
 import { useTabs } from '@/hooks/use-tabs';
 import { SearchResultItem, SearchType, ImageSearchResultItem, VideoSearchResultItem } from '@/lib/types';
-import { search, searchImages, searchVideos, searchNews } from '@/app/actions';
+import { search, searchImages, searchVideos, searchNews, filterInAppFriendlyResults } from '@/app/actions';
 import { getImageSearchTerms } from '@/ai/flows/get-image-search-terms';
 import { useToast } from '@/hooks/use-toast';
 
@@ -21,36 +21,6 @@ import { WebViewer } from './web-viewer';
 import { ImageSearchDialog } from './image-search-dialog';
 
 type View = 'home' | 'results';
-
-// Domains known to block iframe embedding
-const BLOCKED_DOMAINS = [
-    'google.com',
-    'youtube.com',
-    'facebook.com',
-    'instagram.com',
-    'twitter.com',
-    'linkedin.com',
-    'wikipedia.org',
-    'amazon.com',
-    'apple.com',
-    'microsoft.com',
-  ];
-
-function filterInAppFriendlyResults<T extends { link: string }>(items: T[], shouldFilter: boolean): T[] {
-    if (!shouldFilter) {
-      return items;
-    }
-  
-    return items.filter(item => {
-      try {
-        const domain = new URL(item.link).hostname;
-        // Check if the domain or any of its subdomains are in the blocked list.
-        return !BLOCKED_DOMAINS.some(blockedDomain => domain === blockedDomain || domain.endsWith(`.${blockedDomain}`));
-      } catch {
-        return true; // Keep malformed URLs to let the user decide
-      }
-    });
-}
 
 export function SearchApp() {
   const [view, setView] = useState<View>('home');
@@ -98,22 +68,16 @@ export function SearchApp() {
       switch (filter) {
         case 'images':
           response = await searchImages({ query: searchQuery, page, safe });
-          if (response.items) response.items = filterInAppFriendlyResults(response.items, shouldFilter);
           break;
         case 'videos':
           response = await searchVideos({ query: searchQuery, page, safe });
-          if ('items' in response && response.items) {
-            response.items = filterInAppFriendlyResults(response.items, shouldFilter);
-          }
           break;
         case 'news':
             response = await searchNews({ query: searchQuery, page, safe });
-            if (response.items) response.items = filterInAppFriendlyResults(response.items, shouldFilter);
             break;
         case 'all':
         default:
           response = await search({ query: searchQuery, page, safe });
-          if (response.items) response.items = filterInAppFriendlyResults(response.items, shouldFilter);
           break;
       }
 
@@ -121,7 +85,12 @@ export function SearchApp() {
         throw new Error(response.error);
       }
       
-      const items = response.items || [];
+      let items = response.items || [];
+
+      if (shouldFilter && items.length > 0) {
+        toast({ title: 'Filtering Results', description: 'Finding sites that work best in the app...' });
+        items = await filterInAppFriendlyResults(items);
+      }
 
       setResults(items);
       if (response.searchInformation) {
