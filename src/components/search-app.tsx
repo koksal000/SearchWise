@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, FormEvent, useRef } from 'react';
 import { useSettings } from '@/hooks/use-settings';
 import { useHistory } from '@/hooks/use-history';
 import { useTabs } from '@/hooks/use-tabs';
 import { SearchResultItem, SearchType, ImageSearchResultItem, VideoSearchResultItem } from '@/lib/types';
 import { search, searchImages, searchVideos, searchNews } from '@/app/actions';
+import { getImageSearchTerms } from '@/ai/flows/get-image-search-terms';
 import { useToast } from '@/hooks/use-toast';
 
 import { Header } from './header';
@@ -17,6 +18,7 @@ import { HistoryPanel } from './panels/history-panel';
 import { SettingsPanel } from './panels/settings-panel';
 import { TabsPanel } from './panels/tabs-panel';
 import { WebViewer } from './web-viewer';
+import { ImageSearchDialog } from './image-search-dialog';
 
 type View = 'home' | 'results';
 
@@ -33,11 +35,85 @@ export function SearchApp() {
   const [isHistoryPanelOpen, setHistoryPanelOpen] = useState(false);
   const [isSettingsPanelOpen, setSettingsPanelOpen] = useState(false);
   const [isTabsPanelOpen, setTabsPanelOpen] = useState(false);
+  const [isImageSearchDialogOpen, setImageSearchDialogOpen] = useState(false);
   
   const { settings } = useSettings();
   const { addToHistory } = useHistory();
-  const { tabs, activeTab, addTab, setActiveTab, getTabById } = useTabs();
+  const { activeTab, addTab, setActiveTab, getTabById } = useTabs();
   const { toast } = useToast();
+
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.lang = 'en-US';
+      recognition.interimResults = false;
+
+      recognition.onstart = () => setIsListening(true);
+      recognition.onend = () => setIsListening(false);
+      recognition.onerror = (event) => {
+        console.error('Speech recognition error', event.error);
+        toast({ variant: "destructive", title: "Voice Search Error", description: event.error });
+        setIsListening(false);
+      };
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        setQuery(transcript);
+        handleSearch(transcript, 1, activeFilter);
+      };
+      recognitionRef.current = recognition;
+    }
+  }, [activeFilter, toast]);
+
+  const handleVoiceSearch = () => {
+    if (recognitionRef.current && !isListening) {
+      recognitionRef.current.start();
+    } else if (recognitionRef.current && isListening) {
+      recognitionRef.current.stop();
+    } else {
+        toast({ variant: "destructive", title: "Not Supported", description: "Voice search is not supported in your browser." });
+    }
+  };
+
+  const handleImageSearch = () => {
+    setImageSearchDialogOpen(true);
+  };
+  
+  const handleImageSearchSubmit = async (file: File) => {
+    setIsLoading(true);
+    setImageSearchDialogOpen(false);
+    toast({ title: 'Analyzing Image...', description: 'Please wait while we generate search terms.' });
+
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = async () => {
+        const photoDataUri = reader.result as string;
+        const result = await getImageSearchTerms({ photoDataUri });
+        
+        if (result.terms && result.terms.length > 0) {
+            const firstTerm = result.terms[0];
+            setQuery(firstTerm);
+            await handleSearch(firstTerm, 1, 'all');
+        } else {
+             toast({ variant: "destructive", title: 'Analysis Failed', description: 'Could not generate search terms from the image.' });
+        }
+        setIsLoading(false);
+      };
+    } catch (error) {
+      console.error('Image search error:', error);
+      toast({
+        variant: "destructive",
+        title: "Image Analysis Failed",
+        description: error instanceof Error ? error.message : "An unknown error occurred.",
+      });
+      setIsLoading(false);
+    }
+  };
 
   const currentTab = getTabById(activeTab || '');
 
@@ -143,7 +219,14 @@ export function SearchApp() {
   return (
     <div className="min-h-screen">
       {view === 'home' ? (
-        <SearchHome query={query} setQuery={setQuery} onSearch={submitSearch} />
+        <SearchHome 
+          query={query} 
+          setQuery={setQuery} 
+          onSearch={submitSearch}
+          onVoiceSearch={handleVoiceSearch}
+          onImageSearch={handleImageSearch}
+          isListening={isListening}
+        />
       ) : (
         <>
           <Header
@@ -154,6 +237,9 @@ export function SearchApp() {
             onHistoryClick={() => setHistoryPanelOpen(true)}
             onSettingsClick={() => setSettingsPanelOpen(true)}
             onTabsClick={() => setTabsPanelOpen(true)}
+            onVoiceSearch={handleVoiceSearch}
+            onImageSearch={handleImageSearch}
+            isListening={isListening}
           />
           <main>
             <FilterPills activeFilter={activeFilter} onFilterChange={handleFilterChange} />
@@ -178,6 +264,12 @@ export function SearchApp() {
 
       {currentTab && <WebViewer tab={currentTab} onClose={closeWebViewer} />}
 
+      <ImageSearchDialog
+        isOpen={isImageSearchDialogOpen}
+        onOpenChange={setImageSearchDialogOpen}
+        onSearch={handleImageSearchSubmit}
+      />
+      
       <HistoryPanel 
         isOpen={isHistoryPanelOpen} 
         onOpenChange={setHistoryPanelOpen}

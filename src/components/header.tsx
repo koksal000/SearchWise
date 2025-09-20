@@ -1,6 +1,6 @@
 'use client';
 
-import { Search, History, Settings, PanelsLeftRight, X } from 'lucide-react';
+import { Search, History, Settings, PanelsLeftRight, X, Mic, Camera } from 'lucide-react';
 import { Logo } from './logo';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
@@ -15,6 +15,9 @@ type HeaderProps = {
   onHistoryClick: () => void;
   onSettingsClick: () => void;
   onTabsClick: () => void;
+  onVoiceSearch: () => void;
+  onImageSearch: () => void;
+  isListening: boolean;
 };
 
 export function Header({ 
@@ -25,6 +28,9 @@ export function Header({
   onHistoryClick,
   onSettingsClick,
   onTabsClick,
+  onVoiceSearch,
+  onImageSearch,
+  isListening,
 }: HeaderProps) {
   const { tabs } = useTabs();
 
@@ -36,11 +42,20 @@ export function Header({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search..."
-            className="w-full rounded-full bg-card pl-10 h-10"
+            placeholder={isListening ? "Listening..." : "Search..."}
+            className="w-full rounded-full bg-card pl-10 pr-28 h-10"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            disabled={isListening}
           />
+          <div className="absolute right-12 top-1/2 -translate-y-1/2 flex items-center">
+            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={onVoiceSearch}>
+              <Mic className={`h-4 w-4 ${isListening ? 'text-primary animate-pulse' : ''}`} />
+            </Button>
+            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={onImageSearch}>
+              <Camera className="h-4 w-4" />
+            </Button>
+          </div>
           {query && (
             <Button
               type="button"
