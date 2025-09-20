@@ -197,7 +197,7 @@ export function SearchApp() {
     if (settings.inAppWebView) {
       addTab(url, title);
     } else {
-      window.open(url, '_blank');
+      window.open(url, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -217,7 +217,7 @@ export function SearchApp() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background">
       {view === 'home' ? (
         <SearchHome 
           query={query} 

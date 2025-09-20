@@ -6,13 +6,10 @@ import {
   SheetHeader,
   SheetTitle,
   SheetDescription,
-  SheetFooter,
 } from '@/components/ui/sheet';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Button } from '@/components/ui/button';
 import { useSettings } from '@/hooks/use-settings';
-import { useHistory } from '@/hooks/use-history';
 
 type SettingsPanelProps = {
   isOpen: boolean;
@@ -21,13 +18,6 @@ type SettingsPanelProps = {
 
 export function SettingsPanel({ isOpen, onOpenChange }: SettingsPanelProps) {
   const { settings, toggleTheme, setSafeSearch, setInAppWebView, setSaveHistory } = useSettings();
-  const { clearHistory } = useHistory();
-  
-  const handleClearHistory = () => {
-    if(confirm('Are you sure you want to clear all search history? This action cannot be undone.')) {
-      clearHistory();
-    }
-  };
 
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
@@ -80,11 +70,6 @@ export function SettingsPanel({ isOpen, onOpenChange }: SettingsPanelProps) {
             />
           </div>
         </div>
-        <SheetFooter>
-           <Button variant="destructive" className="w-full" onClick={handleClearHistory}>
-              Clear Search History
-            </Button>
-        </SheetFooter>
       </SheetContent>
     </Sheet>
   );
