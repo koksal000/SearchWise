@@ -26,12 +26,12 @@ export function SearchHome({ query, setQuery, onSearch, onVoiceSearch, onImageSe
             <Input
               type="search"
               placeholder={isListening ? "Listening..." : "Search the web with Wise"}
-              className="w-full rounded-full bg-card py-6 pl-12 pr-40 text-lg"
+              className="w-full rounded-full bg-card py-6 pl-12 pr-48 text-lg"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               disabled={isListening}
             />
-            <div className="absolute right-20 top-1/2 -translate-y-1/2 flex items-center gap-1">
+            <div className="absolute right-32 top-1/2 -translate-y-1/2 flex items-center gap-1">
                <Button type="button" variant="ghost" size="icon" className="rounded-full h-10 w-10" onClick={onVoiceSearch}>
                 <Mic className={`h-5 w-5 ${isListening ? 'text-primary animate-pulse' : 'text-muted-foreground'}`} />
               </Button>
