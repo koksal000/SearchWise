@@ -73,7 +73,7 @@ async function fetchWithScraping(query: string, searchType: SearchType): Promise
 
     } catch (scrapingError) {
         console.error('Scraping fallback failed:', scrapingError);
-        return { error: 'Arama API kotası aşıldı ve yedek arama mekanizması başarısız oldu.' };
+        return { error: 'Arama API kotası aşıldı ve yedek arama mekanizması başarısız oldu. Lütfen daha sonra tekrar deneyin.' };
     }
 }
 
@@ -91,15 +91,16 @@ async function fetchFromApi(params: URLSearchParams, query: string, searchType: 
         // Quota exceeded, fall back to scraping
         return fetchWithScraping(query, searchType);
       }
-      throw new Error(errorData.error?.message || 'An error occurred with the search API.');
+      throw new Error(errorData.error?.message || 'Arama API\'si ile bir hata oluştu.');
     }
     return await response.json();
   } catch (error) {
     console.error('Fetch API Error:', error);
     if (error instanceof Error) {
-        return { error: error.message };
+        // If fetch itself fails (e.g. network error) or API returns non-429 error, try scraping
+        return fetchWithScraping(query, searchType);
     }
-    return { error: 'An unknown error occurred while fetching search results.' };
+    return { error: 'Arama sonuçları alınırken bilinmeyen bir hata oluştu.' };
   }
 }
 
@@ -191,7 +192,7 @@ export async function fetchPageContent(url: string): Promise<{content: string} |
             }
         });
         if (!response.ok) {
-            return { error: `Failed to fetch page. Status: ${response.status}` };
+            return { error: `Sayfa alınamadı. Durum: ${response.status}` };
         }
         const content = await response.text();
         return { content };
@@ -200,6 +201,6 @@ export async function fetchPageContent(url: string): Promise<{content: string} |
         if (error instanceof Error) {
             return { error: error.message };
         }
-        return { error: 'An unknown error occurred while fetching page content.' };
+        return { error: 'Sayfa içeriği alınırken bilinmeyen bir hata oluştu.' };
     }
 }

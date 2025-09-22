@@ -87,24 +87,20 @@ export function SearchApp() {
       }
 
       if (response && 'error' in response) {
-        if (response.error === 'API_QUOTA_EXCEEDED') {
-            toast({
-                variant: "destructive",
-                title: "Günlük Kota Aşıldı",
-                description: "Günlük arama kotasına ulaşıldı. Devam etmek için lütfen kendi API anahtarınızı bir ortam değişkenine ekleyin.",
-            });
-            setResults([]);
-            setIsLoading(false);
-            return;
+        toast({
+            variant: "destructive",
+            title: "Arama Hatası",
+            description: response.error,
+        });
+        setResults([]);
+      } else if (response) {
+        let items = response.items || [];
+        setResults(items);
+        if (response.searchInformation) {
+          const time = response.searchInformation.formattedSearchTime;
+          const total = response.searchInformation.formattedTotalResults;
+          setSearchInfo(time && total ? `Yaklaşık ${total} sonuç (${time} saniye)` : '');
         }
-        throw new Error(response.error);
-      }
-      
-      let items = response.items || [];
-
-      setResults(items);
-      if (response.searchInformation) {
-        setSearchInfo(`Yaklaşık ${response.searchInformation.formattedTotalResults} sonuç (${response.searchInformation.formattedSearchTime} saniye)`);
       }
     } catch (error) {
       console.error('Arama hatası:', error);
