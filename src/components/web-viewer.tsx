@@ -5,7 +5,6 @@ import { Button } from './ui/button';
 import { useRef, useState, useEffect, FormEvent } from 'react';
 import { Loader2 } from 'lucide-react';
 import { TabItem } from '@/lib/types';
-import { canBeIframed } from '@/ai/flows/can-be-iframed';
 import { Input } from './ui/input';
 
 type WebViewerProps = {
@@ -17,39 +16,14 @@ type WebViewerProps = {
 export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [iframeSrc, setIframeSrc] = useState<string | null>(null);
   const [displayUrl, setDisplayUrl] = useState(tab?.url || '');
   const [viewKey, setViewKey] = useState(Date.now());
 
   useEffect(() => {
-    const determineSrc = async () => {
-      if (!tab) return;
-      
+    if (tab) {
       setIsLoading(true);
       setDisplayUrl(tab.url);
-      setIframeSrc(null); // Clear previous src
-
-      try {
-        const { canBeIframed: isDirectlyIframable } = await canBeIframed({ url: tab.url });
-        
-        if (isDirectlyIframable) {
-          setIframeSrc(tab.url);
-        } else {
-          console.log(`Cannot be iframed directly, using proxy for: ${tab.url}`);
-          setIframeSrc(`/api/proxy/${tab.url}`);
-        }
-      } catch (error) {
-        console.error("Error checking iframability, falling back to proxy:", error);
-        setIframeSrc(`/api/proxy/${tab.url}`);
-      }
-    };
-
-    determineSrc();
-  }, [tab, viewKey]);
-
-  useEffect(() => {
-    if(tab) {
-        setDisplayUrl(tab.url);
+      setViewKey(Date.now()); // Force iframe to re-render
     }
   }, [tab]);
 
@@ -58,7 +32,10 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
   };
   
   const reload = () => {
-    setViewKey(Date.now());
+    if (iframeRef.current) {
+        setIsLoading(true);
+        iframeRef.current.src = tab?.url || '';
+    }
   };
   
   const handleSubmit = (e: FormEvent) => {
@@ -75,7 +52,7 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
           <X className="h-5 w-5" />
         </Button>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" onClick={reload} disabled={isLoading && !iframeSrc}>
+          <Button variant="ghost" size="icon" onClick={reload} disabled={isLoading}>
             <RefreshCw className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
@@ -92,24 +69,22 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
         </Button>
       </header>
       <div className="flex-grow relative">
-        {(isLoading || !iframeSrc) && (
+        {isLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-background z-10">
                 <Loader2 className="h-8 w-8 animate-spin text-primary"/>
             </div>
         )}
-        {iframeSrc && (
-          <iframe
-            key={viewKey}
-            ref={iframeRef}
-            src={iframeSrc}
-            onLoad={handleLoad}
-            onError={() => setIsLoading(false)} // Stop loading indicator on error too
-            title={tab.title}
-            className="h-full w-full border-0"
-            sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-presentation"
-            style={{ visibility: (isLoading || !iframeSrc) ? 'hidden' : 'visible' }}
-          />
-        )}
+        <iframe
+          key={viewKey}
+          ref={iframeRef}
+          src={tab.url}
+          onLoad={handleLoad}
+          onError={() => setIsLoading(false)} // Stop loading indicator on error too
+          title={tab.title}
+          className="h-full w-full border-0"
+          sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-presentation"
+          style={{ visibility: isLoading ? 'hidden' : 'visible' }}
+        />
       </div>
     </div>
   );
