@@ -2,13 +2,14 @@
 
 import { X, ExternalLink, RefreshCw, Search, ShieldAlert } from 'lucide-react';
 import { Button } from './ui/button';
-import { useRef, useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { Loader2 } from 'lucide-react';
 import { TabItem } from '@/lib/types';
 import { Input } from './ui/input';
 import { fetchPageContent } from '@/app/actions';
 import { canBeIframed } from '@/ai/flows/can-be-iframed';
 import { useToast } from '@/hooks/use-toast';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 
 type WebViewerProps = {
   tab: TabItem | undefined;
@@ -90,9 +91,25 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
           </Button>
         </div>
         <form onSubmit={handleSubmit} className="flex-1 relative">
-            <div className='absolute left-3 top-1/2 -translate-y-1/2' title={viewMode === 'proxied' ? 'Viewing in simplified mode' : 'Secure'}>
+            <div className='absolute left-3 top-1/2 -translate-y-1/2'>
               {viewMode === 'proxied' ? (
-                  <ShieldAlert className="h-4 w-4 text-amber-500" />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className="flex items-center" aria-label="Simplified mode info">
+                        <ShieldAlert className="h-4 w-4 text-amber-500" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80">
+                      <div className="grid gap-4">
+                        <div className="space-y-2">
+                          <h4 className="font-medium leading-none">Simplified View</h4>
+                          <p className="text-sm text-muted-foreground">
+                            This site restricts being embedded, so it's shown in a simplified mode. Some features like logins or complex scripts may not work.
+                          </p>
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
               ) : (
                   <Search className="h-4 w-4 text-muted-foreground" />
               )}
