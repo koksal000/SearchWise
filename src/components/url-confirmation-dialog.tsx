@@ -30,8 +30,8 @@ export function UrlConfirmationDialog({ isOpen, onClose, onConfirm, url }: UrlCo
           <AlertDialogTitle className="text-center">URL Detected</AlertDialogTitle>
           <AlertDialogDescription className="text-center">
             You entered a web address. What would you like to do?
-            <div className="font-mono bg-muted text-foreground p-2 rounded-md mt-2 text-sm break-all">{url}</div>
           </AlertDialogDescription>
+          <div className="font-mono bg-muted text-foreground p-2 rounded-md mt-2 text-sm break-all">{url}</div>
         </AlertDialogHeader>
         <AlertDialogFooter className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <AlertDialogAction onClick={() => onConfirm('search')}>
