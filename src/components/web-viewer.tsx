@@ -2,7 +2,7 @@
 
 import { X, ExternalLink, RefreshCw, Search, ShieldAlert, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Button } from './ui/button';
-import { useState, useEffect, FormEvent, useCallback, useMemo } from 'react';
+import { useState, useEffect, FormEvent, useCallback, useMemo, useRef } from 'react';
 import { Loader2 } from 'lucide-react';
 import { TabItem } from '@/lib/types';
 import { Input } from './ui/input';
@@ -40,6 +40,10 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
 
+  const [progress, setProgress] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   const { toast } = useToast();
   
   const currentUrl = useMemo(() => history[historyIndex] || '', [history, historyIndex]);
@@ -47,8 +51,32 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
   const canGoBack = historyIndex > 0;
   const canGoForward = historyIndex < history.length - 1;
 
+  const startLoading = () => {
+    setIsLoading(true);
+    setProgress(10);
+    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    progressIntervalRef.current = setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 95) {
+          if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+          return prev;
+        }
+        return prev + 5;
+      });
+    }, 200);
+  };
+
+  const finishLoading = () => {
+    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    setProgress(100);
+    setTimeout(() => {
+      setIsLoading(false);
+      setProgress(0);
+    }, 500);
+  };
+
   const loadContent = useCallback(async (url: string, navigationType: 'new' | 'history' = 'new') => {
-    setViewMode('loading');
+    startLoading();
     setDisplayUrl(url);
     setViewKey(Date.now());
     setSrcDocContent('');
@@ -104,6 +132,8 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
       } else {
           onClose();
       }
+    } finally {
+      finishLoading();
     }
   }, [toast, onClose, historyIndex, canGoBack]);
 
@@ -127,6 +157,7 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
     window.addEventListener('message', handleMessage);
     return () => {
       window.removeEventListener('message', handleMessage);
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
     };
   }, [loadContent, currentUrl]);
   
@@ -162,8 +193,6 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
   }
 
   if (!tab) return null;
-
-  const isLoading = viewMode === 'loading';
 
   return (
     <>
@@ -221,16 +250,17 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
                 </Button>
             </div>
           </div>
-          {isLoading && <Progress value={undefined} className="h-0.5 w-full" />}
+          {isLoading && <Progress value={progress} className="h-0.5 w-full" />}
         </header>
         <div className="flex-grow relative bg-muted">
-          {isLoading && !srcDocContent && (
+          {isLoading && viewMode === 'loading' && (
               <div className="absolute inset-0 flex items-center justify-center bg-background z-10">
                   <Loader2 className="h-8 w-8 animate-spin text-primary"/>
               </div>
           )}
           <iframe
             key={viewKey}
+            onLoad={finishLoading}
             src={viewMode === 'direct' ? currentUrl : undefined}
             srcDoc={viewMode === 'proxied' ? srcDocContent : undefined}
             title={tab.title}
