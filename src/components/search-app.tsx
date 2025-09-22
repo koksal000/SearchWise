@@ -293,6 +293,9 @@ export function SearchApp() {
           onVoiceSearch={handleVoiceSearch}
           onImageSearch={handleImageSearch}
           isListening={isListening}
+          onHistoryClick={() => setHistoryPanelOpen(true)}
+          onSettingsClick={() => setSettingsPanelOpen(true)}
+          onTabsClick={() => setTabsPanelOpen(true)}
         />
       ) : (
         <>
