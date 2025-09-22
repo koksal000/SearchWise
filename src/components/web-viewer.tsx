@@ -168,62 +168,60 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
   return (
     <>
       <div className="fixed inset-0 z-50 bg-background flex flex-col">
-        <header className="relative flex flex-col flex-shrink-0 border-b p-2 gap-2">
-            {isLoading && (
-              <div className="absolute top-0 left-0 w-full h-0.5 z-20">
-                <Progress value={undefined} className="h-0.5 w-full" />
-              </div>
-            )}
+        <header className="relative flex-shrink-0 border-b">
+          <div className="flex flex-col p-2 gap-2">
             <form onSubmit={handleSubmit} className="w-full relative">
-              <div className='absolute left-3 top-1/2 -translate-y-1/2'>
-                {viewMode === 'proxied' ? (
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button className="flex items-center" aria-label="Basitleştirilmiş mod bilgisi">
-                          <ShieldAlert className="h-4 w-4 text-amber-500" />
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-80">
-                        <div className="grid gap-4">
-                          <div className="space-y-2">
-                            <h4 className="font-medium leading-none">Basitleştirilmiş Görünüm</h4>
-                            <p className="text-sm text-muted-foreground">
-                              Bu site yerleştirilmeyi kısıtladığı için basitleştirilmiş modda gösteriliyor. Giriş yapma veya karmaşık betikler gibi bazı özellikler çalışmayabilir.
-                            </p>
-                          </div>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                ) : (
-                    <Search className="h-4 w-4 text-muted-foreground" />
-                )}
-              </div>
-              <Input
-                  value={displayUrl}
-                  onChange={(e) => setDisplayUrl(e.target.value)}
-                  className="w-full rounded-full bg-muted pl-9 pr-4 h-8 text-sm"
-              />
-          </form>
-          <div className="flex items-center justify-between">
-            <div className='flex items-center gap-1'>
-                <Button variant="ghost" size="icon" className='h-8 w-8' onClick={handleCloseClick}>
-                    <X className="h-5 w-5" />
-                </Button>
-                <Button variant="ghost" size="icon" className='h-8 w-8' onClick={goBack} disabled={!canGoBack || isLoading}>
-                    <ArrowLeft className="h-5 w-5" />
-                </Button>
-                <Button variant="ghost" size="icon" className='h-8 w-8' onClick={goForward} disabled={!canGoForward || isLoading}>
-                    <ArrowRight className="h-5 w-5" />
-                </Button>
-                 <Button variant="ghost" size="icon" className='h-8 w-8' onClick={reload} disabled={isLoading}>
-                    <RefreshCw className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
+                <div className='absolute left-3 top-1/2 -translate-y-1/2'>
+                    {viewMode === 'proxied' ? (
+                        <Popover>
+                        <PopoverTrigger asChild>
+                            <button className="flex items-center" aria-label="Basitleştirilmiş mod bilgisi">
+                            <ShieldAlert className="h-4 w-4 text-amber-500" />
+                            </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80">
+                            <div className="grid gap-4">
+                            <div className="space-y-2">
+                                <h4 className="font-medium leading-none">Basitleştirilmiş Görünüm</h4>
+                                <p className="text-sm text-muted-foreground">
+                                Bu site yerleştirilmeyi kısıtladığı için basitleştirilmiş modda gösteriliyor. Giriş yapma veya karmaşık betikler gibi bazı özellikler çalışmayabilir.
+                                </p>
+                            </div>
+                            </div>
+                        </PopoverContent>
+                        </Popover>
+                    ) : (
+                        <Search className="h-4 w-4 text-muted-foreground" />
+                    )}
+                </div>
+                <Input
+                    value={displayUrl}
+                    onChange={(e) => setDisplayUrl(e.target.value)}
+                    className="w-full rounded-full bg-muted pl-9 pr-4 h-8 text-sm"
+                />
+            </form>
+            <div className="flex items-center justify-between">
+                <div className='flex items-center gap-1'>
+                    <Button variant="ghost" size="icon" className='h-8 w-8' onClick={handleCloseClick}>
+                        <X className="h-5 w-5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className='h-8 w-8' onClick={goBack} disabled={!canGoBack || isLoading}>
+                        <ArrowLeft className="h-5 w-5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className='h-8 w-8' onClick={goForward} disabled={!canGoForward || isLoading}>
+                        <ArrowRight className="h-5 w-5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className='h-8 w-8' onClick={reload} disabled={isLoading}>
+                        <RefreshCw className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
+                    </Button>
+                </div>
+                
+                <Button variant="ghost" size="icon" className='h-8 w-8' onClick={() => window.open(currentUrl, '_blank')} title="Yeni sekmede aç">
+                <ExternalLink className="h-5 w-5" />
                 </Button>
             </div>
-            
-            <Button variant="ghost" size="icon" className='h-8 w-8' onClick={() => window.open(currentUrl, '_blank')} title="Yeni sekmede aç">
-              <ExternalLink className="h-5 w-5" />
-            </Button>
           </div>
+          {isLoading && <Progress value={undefined} className="h-0.5 w-full" />}
         </header>
         <div className="flex-grow relative bg-muted">
           {isLoading && !srcDocContent && (
