@@ -1,5 +1,5 @@
 import { ScrapedResult, SearchType } from './types';
-import { parse, HTMLElement } from 'node-html-parser';
+import { parse } from 'node-html-parser';
 
 
 export function extractScrapedResults(htmlContent: string, searchType: SearchType): ScrapedResult[] {
@@ -7,33 +7,36 @@ export function extractScrapedResults(htmlContent: string, searchType: SearchTyp
 
     if (searchType === SearchType.IMAGES) {
         const imageResults: ScrapedResult[] = [];
-        const imageElements = root.querySelectorAll('div.isv-r');
+        // Updated selector for image results container
+        const imageElements = root.querySelectorAll('div.YQ4gaf');
         
         for (const el of imageElements) {
-            const linkEl = el.querySelector('a:first-child');
+            const linkEl = el.querySelector('a');
             if (!linkEl) continue;
 
-            const linkHref = linkEl.getAttribute('href');
-            if (!linkHref) continue;
-
-            const imgEl = el.querySelector('img');
-            const imageUrl = imgEl?.getAttribute('src');
-            const titleEl = el.querySelector('div.byt6U');
-            const title = titleEl?.innerText || 'Görsel Sonucu';
+            // The main link to the page hosting the image
+            const pageLink = linkEl.getAttribute('href');
+            if (!pageLink) continue;
             
-            const urlParams = new URLSearchParams(linkHref.split('?')[1]);
-            const link = urlParams.get('imgurl');
-            const snippet = urlParams.get('imgrefurl') || '';
+            const imgEl = el.querySelector('img');
+            // Prefer data-src for higher quality image, fallback to src
+            const imageUrl = imgEl?.getAttribute('data-src') || imgEl?.getAttribute('src');
+            if (!imageUrl) continue;
 
-            if (link && imageUrl) {
-                imageResults.push({ title, link, snippet, imageUrl });
-            }
+            const title = imgEl.getAttribute('alt') || 'Görsel Sonucu';
+            
+            // Extract the source website from the element below the image
+            const sourceEl = el.querySelector('span.pM4Snf');
+            const snippet = sourceEl?.innerText || new URL(pageLink).hostname;
+
+            imageResults.push({ title, link: pageLink, snippet, imageUrl });
         }
         return imageResults;
     }
 
     if (searchType === SearchType.NEWS) {
         const newsResults: ScrapedResult[] = [];
+        // This selector seems to be working, keeping it.
         const newsElements = root.querySelectorAll('div.SoaBEf');
 
         for (const el of newsElements) {
@@ -53,9 +56,10 @@ export function extractScrapedResults(htmlContent: string, searchType: SearchTyp
         return newsResults;
     }
 
-    // Default to web search
+    // Default to web search (covers 'all' and 'videos' which share a similar structure)
     const webResults: ScrapedResult[] = [];
-    const resultElements = root.querySelectorAll('div.g');
+    // Updated selector for general search results
+    const resultElements = root.querySelectorAll('div.MjjY7');
 
     for (const el of resultElements) {
         const linkEl = el.querySelector('a');
@@ -64,6 +68,7 @@ export function extractScrapedResults(htmlContent: string, searchType: SearchTyp
         const titleEl = el.querySelector('h3');
         const title = titleEl?.innerText;
 
+        // Updated selector for the snippet
         const snippetEl = el.querySelector('div.VwiC3b');
         const snippet = snippetEl?.innerText;
 
