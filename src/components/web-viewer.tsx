@@ -2,7 +2,7 @@
 
 import { X, ExternalLink, RefreshCw, Search, ShieldAlert } from 'lucide-react';
 import { Button } from './ui/button';
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, FormEvent, useRef, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
 import { TabItem } from '@/lib/types';
 import { Input } from './ui/input';
@@ -20,13 +20,14 @@ type WebViewerProps = {
 type ViewMode = 'direct' | 'proxied' | 'loading';
 
 export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
-  const [viewMode, setViewMode] = useState<ViewMode>('loading');
+  const [currentUrl, setCurrentUrl] = useState(tab?.url || '');
   const [displayUrl, setDisplayUrl] = useState(tab?.url || '');
+  const [viewMode, setViewMode] = useState<ViewMode>('loading');
   const [srcDocContent, setSrcDocContent] = useState('');
   const [viewKey, setViewKey] = useState(Date.now());
   const { toast } = useToast();
 
-  const loadContent = async (url: string) => {
+  const loadContent = useCallback(async (url: string) => {
     setViewMode('loading');
     setDisplayUrl(url);
     setViewKey(Date.now());
@@ -41,7 +42,21 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
         const result = await fetchPageContent(url);
         if ('content' in result) {
           const baseTag = `<base href="${new URL(url).origin}">`;
-          setSrcDocContent(baseTag + result.content);
+          const navigationInterceptorScript = `
+            <script>
+              document.addEventListener('click', function(e) {
+                let target = e.target;
+                while (target && target.tagName !== 'A') {
+                  target = target.parentElement;
+                }
+                if (target && target.href) {
+                  e.preventDefault();
+                  window.parent.postMessage({ type: 'navigate', url: target.href }, '*');
+                }
+              }, true);
+            <\/script>
+          `;
+          setSrcDocContent(baseTag + navigationInterceptorScript + result.content);
           setViewMode('proxied');
         } else {
           throw new Error(result.error);
@@ -55,19 +70,33 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
       });
       onClose(); // Hata durumunda görüntüleyiciyi kapat
     }
-  };
+  }, [toast, onClose]);
 
   useEffect(() => {
     if (tab) {
-      loadContent(tab.url);
+        setCurrentUrl(tab.url);
+        loadContent(tab.url);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'navigate' && event.data.url) {
+        const newUrl = event.data.url;
+        setCurrentUrl(newUrl);
+        loadContent(newUrl);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => {
+      window.removeEventListener('message', handleMessage);
+    };
+  }, [loadContent]);
   
   const reload = () => {
-    if(tab) {
-      loadContent(tab.url);
-    }
+    loadContent(currentUrl);
   };
   
   const handleSubmit = (e: FormEvent) => {
@@ -120,7 +149,7 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
                 className="w-full rounded-full bg-muted pl-9 pr-4 h-9"
             />
         </form>
-        <Button variant="ghost" size="icon" onClick={() => window.open(tab.url, '_blank')} title="Yeni sekmede aç">
+        <Button variant="ghost" size="icon" onClick={() => window.open(currentUrl, '_blank')} title="Yeni sekmede aç">
           <ExternalLink className="h-5 w-5" />
         </Button>
       </header>
@@ -132,7 +161,7 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
         )}
         <iframe
           key={viewKey}
-          src={viewMode === 'direct' ? tab.url : undefined}
+          src={viewMode === 'direct' ? currentUrl : undefined}
           srcDoc={viewMode === 'proxied' ? srcDocContent : undefined}
           title={tab.title}
           className="h-full w-full border-0"
