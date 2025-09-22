@@ -10,6 +10,7 @@ import { fetchPageContent } from '@/app/actions';
 import { canBeIframed } from '@/ai/flows/can-be-iframed';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { Progress } from "@/components/ui/progress";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -19,7 +20,6 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
 type WebViewerProps = {
@@ -171,22 +171,8 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
   return (
     <>
       <div className="fixed inset-0 z-50 bg-background flex flex-col">
-        <header className="flex h-12 flex-shrink-0 items-center gap-2 border-b px-2 sm:px-4">
-          <Button variant="ghost" size="icon" onClick={handleCloseClick}>
-            <X className="h-5 w-5" />
-          </Button>
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" onClick={goBack} disabled={!canGoBack || isLoading}>
-                <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={goForward} disabled={!canGoForward || isLoading}>
-                <ArrowRight className="h-5 w-5" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={reload} disabled={isLoading}>
-              <RefreshCw className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
-            </Button>
-          </div>
-          <form onSubmit={handleSubmit} className="flex-1 relative">
+        <header className="flex flex-col flex-shrink-0 border-b p-2">
+            <form onSubmit={handleSubmit} className="w-full relative mb-2">
               <div className='absolute left-3 top-1/2 -translate-y-1/2'>
                 {viewMode === 'proxied' ? (
                     <Popover>
@@ -213,15 +199,38 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
               <Input
                   value={displayUrl}
                   onChange={(e) => setDisplayUrl(e.target.value)}
-                  className="w-full rounded-full bg-muted pl-9 pr-4 h-9"
+                  className="w-full rounded-full bg-muted pl-9 pr-4 h-8 text-sm"
               />
           </form>
-          <Button variant="ghost" size="icon" onClick={() => window.open(currentUrl, '_blank')} title="Yeni sekmede aç">
-            <ExternalLink className="h-5 w-5" />
-          </Button>
+          <div className="flex items-center justify-between">
+            <div className='flex items-center gap-1'>
+                <Button variant="ghost" size="icon" className='h-8 w-8' onClick={handleCloseClick}>
+                    <X className="h-5 w-5" />
+                </Button>
+                <Button variant="ghost" size="icon" className='h-8 w-8' onClick={goBack} disabled={!canGoBack || isLoading}>
+                    <ArrowLeft className="h-5 w-5" />
+                </Button>
+                <Button variant="ghost" size="icon" className='h-8 w-8' onClick={goForward} disabled={!canGoForward || isLoading}>
+                    <ArrowRight className="h-5 w-5" />
+                </Button>
+            </div>
+            
+            <Button variant="ghost" size="icon" className='h-8 w-8' onClick={reload} disabled={isLoading}>
+              <RefreshCw className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
+            </Button>
+            
+            <Button variant="ghost" size="icon" className='h-8 w-8' onClick={() => window.open(currentUrl, '_blank')} title="Yeni sekmede aç">
+              <ExternalLink className="h-5 w-5" />
+            </Button>
+          </div>
         </header>
         <div className="flex-grow relative">
           {isLoading && (
+              <div className="absolute top-0 left-0 w-full h-1 z-20">
+                <Progress value={undefined} className="h-0.5 w-full animate-pulse" />
+              </div>
+          )}
+          {isLoading && !srcDocContent && (
               <div className="absolute inset-0 flex items-center justify-center bg-background z-10">
                   <Loader2 className="h-8 w-8 animate-spin text-primary"/>
               </div>
@@ -233,7 +242,7 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
             title={tab.title}
             className="h-full w-full border-0"
             sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-presentation"
-            style={{ visibility: isLoading ? 'hidden' : 'visible' }}
+            style={{ visibility: isLoading && !srcDocContent ? 'hidden' : 'visible' }}
           />
         </div>
       </div>
