@@ -5,7 +5,7 @@ import { useSettings } from '@/hooks/use-settings';
 import { useHistory } from '@/hooks/use-history';
 import { useTabs } from '@/hooks/use-tabs';
 import { SearchResultItem, SearchType, ImageSearchResultItem, VideoSearchResultItem } from '@/lib/types';
-import { search, searchImages, searchVideos, searchNews, filterInAppFriendlyResults } from '@/app/actions';
+import { search, searchImages, searchVideos, searchNews } from '@/app/actions';
 import { getImageSearchTerms } from '@/ai/flows/get-image-search-terms';
 import { useToast } from '@/hooks/use-toast';
 import { isValidUrl, normalizeUrl } from '@/lib/url-handler';
@@ -214,14 +214,19 @@ export function SearchApp() {
 
   const submitSearch = (e: FormEvent) => {
     e.preventDefault();
-    if (isValidUrl(query)) {
-      const url = normalizeUrl(query);
-      const title = new URL(url).hostname;
-      setUrlConfirmation({ query, url, title });
-    } else {
-      handleSearch(query, 1, activeFilter);
-    }
+    handleNavigation(query);
   };
+
+  const handleNavigation = (navQuery: string) => {
+    if (isValidUrl(navQuery)) {
+        const url = normalizeUrl(navQuery);
+        const title = new URL(url).hostname;
+        setUrlConfirmation({ query: navQuery, url, title });
+      } else {
+        setActiveTab(null); // Close web viewer if it's a search
+        handleSearch(navQuery, 1, activeFilter);
+      }
+  }
   
   const handlePageChange = (newPage: number) => {
     handleSearch(activeQuery, newPage, activeFilter);
@@ -235,13 +240,7 @@ export function SearchApp() {
 
   const handleHistoryItemClick = (historyQuery: string) => {
     setQuery(historyQuery);
-    if (isValidUrl(historyQuery)) {
-        const url = normalizeUrl(historyQuery);
-        const title = new URL(url).hostname;
-        setUrlConfirmation({ query: historyQuery, url, title });
-    } else {
-        handleSearch(historyQuery, 1, 'all');
-    }
+    handleNavigation(historyQuery);
   };
   
   const handleResultClick = (url: string, title: string) => {
@@ -276,6 +275,7 @@ export function SearchApp() {
     if (decision === 'navigate') {
         navigateToUrl(urlConfirmation.url, urlConfirmation.title);
     } else {
+        setActiveTab(null); // Close web viewer if it's a search
         handleSearch(urlConfirmation.query, 1, activeFilter);
     }
     setUrlConfirmation(null);
@@ -327,7 +327,7 @@ export function SearchApp() {
         </>
       )}
 
-      {currentTab && <WebViewer tab={currentTab} onClose={closeWebViewer} />}
+      {currentTab && <WebViewer tab={currentTab} onClose={closeWebViewer} onNavigate={handleNavigation} />}
 
       <ImageSearchDialog
         isOpen={isImageSearchDialogOpen}

@@ -1,18 +1,20 @@
 'use client';
 
-import { X, ExternalLink, RefreshCw } from 'lucide-react';
+import { X, ExternalLink, RefreshCw, Search } from 'lucide-react';
 import { Button } from './ui/button';
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, FormEvent } from 'react';
 import { Loader2 } from 'lucide-react';
 import { TabItem } from '@/lib/types';
 import { canBeIframed } from '@/ai/flows/can-be-iframed';
+import { Input } from './ui/input';
 
 type WebViewerProps = {
   tab: TabItem | undefined;
   onClose: () => void;
+  onNavigate: (query: string) => void;
 };
 
-export function WebViewer({ tab, onClose }: WebViewerProps) {
+export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [iframeSrc, setIframeSrc] = useState<string | null>(null);
@@ -45,16 +47,25 @@ export function WebViewer({ tab, onClose }: WebViewerProps) {
     determineSrc();
   }, [tab, viewKey]);
 
+  useEffect(() => {
+    if(tab) {
+        setDisplayUrl(tab.url);
+    }
+  }, [tab]);
+
   const handleLoad = () => {
     setIsLoading(false);
-    // Note: Accessing contentWindow properties might fail due to cross-origin restrictions,
-    // so we don't update the display URL from the iframe anymore. The proxy handles this.
   };
   
   const reload = () => {
     setViewKey(Date.now());
   };
   
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    onNavigate(displayUrl);
+  };
+
   if (!tab) return null;
 
   return (
@@ -68,9 +79,14 @@ export function WebViewer({ tab, onClose }: WebViewerProps) {
             <RefreshCw className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
-        <div className="flex-1 rounded-full bg-muted px-4 py-1.5 text-sm text-muted-foreground truncate">
-          {displayUrl}
-        </div>
+        <form onSubmit={handleSubmit} className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+                value={displayUrl}
+                onChange={(e) => setDisplayUrl(e.target.value)}
+                className="w-full rounded-full bg-muted pl-9 pr-4 h-9"
+            />
+        </form>
         <Button variant="ghost" size="icon" onClick={() => window.open(tab.url, '_blank')}>
           <ExternalLink className="h-5 w-5" />
         </Button>
