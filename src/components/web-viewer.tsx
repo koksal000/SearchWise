@@ -7,6 +7,7 @@ import { Loader2 } from 'lucide-react';
 import { TabItem } from '@/lib/types';
 import { Input } from './ui/input';
 import { fetchPageContent } from '@/app/actions';
+import { canBeIframed } from '@/ai/flows/can-be-iframed';
 import { useToast } from '@/hooks/use-toast';
 
 type WebViewerProps = {
@@ -15,91 +16,56 @@ type WebViewerProps = {
   onNavigate: (query: string) => void;
 };
 
-const LOAD_TIMEOUT = 5000; // 5 seconds
+type ViewMode = 'direct' | 'proxied' | 'loading';
 
 export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<ViewMode>('loading');
   const [displayUrl, setDisplayUrl] = useState(tab?.url || '');
-  const [viewKey, setViewKey] = useState(Date.now());
-  const [useSrcDoc, setUseSrcDoc] = useState(false);
   const [srcDocContent, setSrcDocContent] = useState('');
+  const [viewKey, setViewKey] = useState(Date.now());
   const { toast } = useToast();
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const loadContentAsProxy = async (url: string) => {
-    // Ensure we don't run this multiple times
-    if (useSrcDoc) return;
-    
-    setIsLoading(true);
-    const result = await fetchPageContent(url);
-    if ('content' in result) {
-      // Add a <base> tag to resolve relative paths
-      const baseTag = `<base href="${new URL(url).origin}">`;
-      setSrcDocContent(baseTag + result.content);
-      setUseSrcDoc(true);
-    } else {
-      toast({
+  const loadContent = async (url: string) => {
+    setViewMode('loading');
+    setDisplayUrl(url);
+    setViewKey(Date.now());
+    setSrcDocContent('');
+
+    try {
+      const { canBeIframed: isIframable } = await canBeIframed({ url });
+
+      if (isIframable) {
+        setViewMode('direct');
+      } else {
+        const result = await fetchPageContent(url);
+        if ('content' in result) {
+          const baseTag = `<base href="${new URL(url).origin}">`;
+          setSrcDocContent(baseTag + result.content);
+          setViewMode('proxied');
+        } else {
+          throw new Error(result.error);
+        }
+      }
+    } catch (error) {
+       toast({
         variant: "destructive",
         title: "Failed to load page",
-        description: result.error,
+        description: error instanceof Error ? error.message : 'An unknown error occurred.',
       });
-      // Fallback to trying to load in iframe directly on error
-      setUseSrcDoc(false);
-    }
-    setIsLoading(false);
-  }
-
-  const clearLoadTimeout = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
+      onClose(); // Close viewer on error
     }
   };
 
   useEffect(() => {
     if (tab) {
-      setIsLoading(true);
-      setDisplayUrl(tab.url);
-      setViewKey(Date.now());
-      setUseSrcDoc(false);
-      setSrcDocContent('');
-      
-      // Set a timeout to assume the site is blocked if it doesn't load
-      clearLoadTimeout();
-      timeoutRef.current = setTimeout(() => {
-        if (isLoading && tab.url) { // If still loading after timeout
-          loadContentAsProxy(tab.url);
-        }
-      }, LOAD_TIMEOUT);
+      loadContent(tab.url);
     }
-
-    return () => {
-      clearLoadTimeout();
-    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
   
-  const handleLoad = () => {
-    setIsLoading(false);
-    clearLoadTimeout();
-  };
-  
   const reload = () => {
     if(tab) {
-      setIsLoading(true);
-      setDisplayUrl(tab.url);
-      setViewKey(Date.now());
-      setUseSrcDoc(false);
-      setSrcDocContent('');
-
-      // Restart the timeout logic on reload
-      clearLoadTimeout();
-      timeoutRef.current = setTimeout(() => {
-        if (isLoading && tab.url) {
-          loadContentAsProxy(tab.url);
-        }
-      }, LOAD_TIMEOUT);
+      loadContent(tab.url);
     }
   };
   
@@ -109,6 +75,8 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
   };
 
   if (!tab) return null;
+
+  const isLoading = viewMode === 'loading';
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
@@ -122,8 +90,8 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
           </Button>
         </div>
         <form onSubmit={handleSubmit} className="flex-1 relative">
-            <div className='absolute left-3 top-1/2 -translate-y-1/2' title={useSrcDoc ? 'Viewing in simplified mode' : 'Secure'}>
-              {useSrcDoc ? (
+            <div className='absolute left-3 top-1/2 -translate-y-1/2' title={viewMode === 'proxied' ? 'Viewing in simplified mode' : 'Secure'}>
+              {viewMode === 'proxied' ? (
                   <ShieldAlert className="h-4 w-4 text-amber-500" />
               ) : (
                   <Search className="h-4 w-4 text-muted-foreground" />
@@ -147,11 +115,8 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
         )}
         <iframe
           key={viewKey}
-          ref={iframeRef}
-          src={!useSrcDoc ? tab.url : undefined}
-          srcDoc={useSrcDoc ? srcDocContent : undefined}
-          onLoad={handleLoad}
-          onError={() => loadContentAsProxy(tab.url)} // Try proxy on direct error
+          src={viewMode === 'direct' ? tab.url : undefined}
+          srcDoc={viewMode === 'proxied' ? srcDocContent : undefined}
           title={tab.title}
           className="h-full w-full border-0"
           sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-presentation"
