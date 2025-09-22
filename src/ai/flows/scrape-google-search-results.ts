@@ -44,12 +44,12 @@ const prompt = ai.definePrompt({
 The search was for "{{query}}" with a search type of "{{searchType}}".
 
 Parse the HTML and extract the following information for each search result:
-- title: The main title of the result.
-- link: The full URL the result points to. Resolve any relative URLs to be absolute google.com URLs if necessary, but prefer the direct link.
-- snippet: The descriptive text snippet shown under the title.
-- imageUrl: If it's an image or news search, extract the source URL for the result's thumbnail image. For web results, this can be omitted.
+- title: The main title of the result. For image search, this is often the text below the image.
+- link: The full URL the result points to. For image search, this is the page hosting the image, not the image file itself. Resolve any relative URLs.
+- snippet: The descriptive text snippet shown under the title. For image results, this might be the domain name or a short description.
+- imageUrl: If it's an image search, extract the source URL for the result's thumbnail image. For news results with thumbnails, also extract the image URL. For web results, this can be omitted unless a clear thumbnail is present.
 
-Return the data as a structured JSON object. Focus on the main organic search results and ignore ads or "People also ask" sections.
+Return the data as a structured JSON object. Focus on the main organic search results and ignore ads, "People also ask" sections, or other side panels. Make sure all links are complete, absolute URLs.
 
 HTML Content to parse:
 \`\`\`html

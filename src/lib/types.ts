@@ -1,3 +1,10 @@
+export type ScrapedResult = {
+  title: string;
+  link: string;
+  snippet: string;
+  imageUrl?: string;
+};
+
 export type SearchResultItem = {
   title: string;
   link: string;
@@ -9,16 +16,18 @@ export type SearchResultItem = {
   };
 };
 
+export type ImageSearchResultItemImage = {
+  contextLink: string;
+  thumbnailLink: string;
+  width: number;
+  height: number;
+};
+
 export type ImageSearchResultItem = {
   title: string;
   link: string;
   displayLink: string;
-  image: {
-    contextLink: string;
-    thumbnailLink: string;
-    width: number;
-    height: number;
-  };
+  image: ImageSearchResultItemImage;
 };
 
 export type VideoSearchResultItem = SearchResultItem & {
@@ -31,7 +40,7 @@ export type SearchResults = {
     formattedTotalResults: string;
     formattedSearchTime: string;
   };
-  items: (SearchResultItem | ImageSearchResultItem)[];
+  items: SearchResultItem[];
 };
 
 export type ImageSearchResults = {

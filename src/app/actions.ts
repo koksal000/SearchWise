@@ -2,8 +2,7 @@
 
 import { extractVideoData } from '@/ai/flows/extract-video-data-from-search-results';
 import { scrapeGoogleSearchResults } from '@/ai/flows/scrape-google-search-results';
-import { SearchResults, ImageSearchResults, VideoSearchResultItem, SearchResultItem, SearchType } from '@/lib/types';
-import { nanoid } from 'nanoid';
+import { SearchResults, ImageSearchResults, VideoSearchResultItem, SearchResultItem, SearchType, ImageSearchResultItemImage, ScrapedResult } from '@/lib/types';
 
 const API_KEY = process.env.GOOGLE_API_KEY;
 const CX_ID = process.env.GOOGLE_CX_ID;
@@ -15,20 +14,21 @@ type SearchParams = {
   safe: 'active' | 'off';
 }
 
-async function fetchWithScraping(query: string, searchType: SearchType): Promise<SearchResults | { error: string }> {
+async function fetchWithScraping(query: string, searchType: SearchType): Promise<SearchResults | ImageSearchResults | { error: string }> {
     console.log(`API quota likely exceeded. Falling back to scraping for ${searchType} search.`);
     let url = '';
+    const encodedQuery = encodeURIComponent(query);
     switch (searchType) {
         case 'images':
-            url = `https://www.google.com/search?q=${encodeURIComponent(query)}&udm=2`;
+            url = `https://www.google.com/search?q=${encodedQuery}&udm=2`;
             break;
         case 'news':
-            url = `https://www.google.com/search?q=${encodeURIComponent(query)}&tbm=nws`;
+            url = `https://www.google.com/search?q=${encodedQuery}&tbm=nws`;
             break;
+        case 'videos':
         case 'all':
-        case 'videos': // Videos will also use general search scraping
         default:
-            url = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+            url = `https://www.google.com/search?q=${encodedQuery}`;
             break;
     }
 
@@ -40,57 +40,60 @@ async function fetchWithScraping(query: string, searchType: SearchType): Promise
         const htmlContent = await response.text();
         
         const scrapedResults = await scrapeGoogleSearchResults({ htmlContent, searchType, query });
-
-        // Transform scraped results into the format expected by the frontend
-        const items = scrapedResults.results.map(r => ({
-            ...r,
-            displayLink: r.link ? new URL(r.link).hostname : '',
-            // Add dummy pagemap if needed for other result types to not crash
-            pagemap: r.imageUrl ? { cse_thumbnail: [{ src: r.imageUrl }] } : {},
-        }));
+        if (!scrapedResults.results || scrapedResults.results.length === 0) {
+            return { searchInformation: { formattedTotalResults: '0', formattedSearchTime: '0.00' }, items: [] };
+        }
 
         const searchInformation = {
-             formattedTotalResults: `${items.length}`,
+             formattedTotalResults: `${scrapedResults.results.length}`,
              formattedSearchTime: `0.00`,
         }
 
         if (searchType === 'images') {
-             const imageItems = items.map(item => ({
+             const imageItems: ImageSearchResultItem[] = scrapedResults.results.map((item: ScrapedResult) => ({
                 title: item.title,
                 link: item.link,
-                displayLink: item.displayLink,
+                displayLink: new URL(item.link).hostname,
                 image: {
                     contextLink: item.link,
                     thumbnailLink: item.imageUrl || '',
-                    width: 500, // dummy data
-                    height: 500, // dummy data
-                }
+                    width: 500, // Dummy data
+                    height: 500, // Dummy data
+                } as ImageSearchResultItemImage
              }));
-             return { searchInformation, items: imageItems as any };
+             return { searchInformation, items: imageItems };
         }
 
-        return { searchInformation, items: items as SearchResultItem[] };
+        const items: SearchResultItem[] = scrapedResults.results.map((item: ScrapedResult) => ({
+            ...item,
+            displayLink: new URL(item.link).hostname,
+            pagemap: item.imageUrl ? { cse_thumbnail: [{ src: item.imageUrl }] } : {},
+        }));
+
+        return { searchInformation, items };
 
     } catch (scrapingError) {
         console.error('Scraping fallback failed:', scrapingError);
-        return { error: 'Arama API kotası aşıldı ve yedek arama mekanizması başarısız oldu. Lütfen daha sonra tekrar deneyin.' };
+        const errorMessage = scrapingError instanceof Error ? scrapingError.message : 'Bilinmeyen bir kazıma hatası oluştu.';
+        return { error: `Arama API kotası aşıldı ve yedek arama mekanizması başarısız oldu: ${errorMessage}` };
     }
 }
 
 
 async function fetchFromApi(params: URLSearchParams, query: string, searchType: SearchType): Promise<any> {
   if (!API_KEY || !CX_ID) {
+    console.log("API_KEY or CX_ID is missing. Falling back to scraping.");
     return fetchWithScraping(query, searchType);
   }
   try {
     const response = await fetch(`${API_URL}?${params.toString()}`);
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Google API Error:', errorData.error);
-      if (errorData.error.code === 429) {
+      if (response.status === 429) {
         // Quota exceeded, fall back to scraping
         return fetchWithScraping(query, searchType);
       }
+      const errorData = await response.json();
+      console.error('Google API Error:', errorData.error);
       return { error: errorData.error?.message || 'Arama API\'si ile bir hata oluştu.' };
     }
     return await response.json();
