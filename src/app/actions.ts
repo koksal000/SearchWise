@@ -3,7 +3,6 @@
 import { canBeIframed } from '@/ai/flows/can-be-iframed';
 import { extractScrapedResults, extractVideoData } from '@/lib/scraping-service';
 import { SearchResults, ImageSearchResults, VideoSearchResultItem, SearchResultItem, SearchType, ImageSearchResultItemImage } from '@/lib/types';
-import { fetchPageContentFlow } from '@/ai/flows/fetch-page-content-flow';
 
 const API_KEY = process.env.GOOGLE_API_KEY;
 const CX_ID = process.env.GOOGLE_CX_ID;
@@ -14,6 +13,33 @@ type SearchParams = {
   page: number;
   safe: 'active' | 'off';
 }
+
+async function fetchPageContentFromProxy(url: string): Promise<{ content: string } | { error: string }> {
+    // This function will call our internal proxy API route.
+    // The logic is now inside actions.ts itself, calling the /api/proxy endpoint.
+    // For simplicity in this refactor, we will put the fetch logic directly in fetchWithScraping
+    // and remove the need for a separate API route for now.
+    // This keeps the server actions self-contained.
+    try {
+        const response = await fetch(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
+        });
+
+        if (!response.ok) {
+             throw new Error(`Failed to fetch URL: ${response.statusText}`);
+        }
+        const content = await response.text();
+        return { content };
+
+    } catch (e) {
+        console.error("fetchPageContentFromProxy failed: ", e);
+        if (e instanceof Error) {
+            return { error: e.message };
+        }
+        return { error: 'An unknown error occurred while fetching page content via proxy.' };
+    }
+}
+
 
 async function fetchWithScraping(query: string, searchType: SearchType): Promise<SearchResults | ImageSearchResults | { error: string }> {
     console.log(`API quota likely exceeded or keys not provided. Falling back to scraping for ${searchType} search.`);
@@ -38,12 +64,19 @@ async function fetchWithScraping(query: string, searchType: SearchType): Promise
     }
 
     try {
-        const pageContentResult = await fetchPageContentFlow({ url });
+        // Use the new internal proxy fetcher
+        const pageContentResult = await fetchPageContentFromProxy(url);
+
+        if ('error' in pageContentResult) {
+            return { error: `Search API fallback failed: ${pageContentResult.error}` };
+        }
+        
         const htmlContent = pageContentResult.content;
         
         const scrapedResults = extractScrapedResults(htmlContent, searchType);
 
         if (!scrapedResults || scrapedResults.length === 0) {
+             console.log("Scraping found no results for query:", query);
             return { searchInformation: { formattedTotalResults: '0', formattedSearchTime: '0.00' }, items: [] };
         }
 
@@ -92,6 +125,7 @@ async function fetchFromApi(params: URLSearchParams, query: string, searchType: 
     const response = await fetch(`${API_URL}?${params.toString()}`);
     if (!response.ok) {
       if (response.status === 429) {
+        console.log("Google API quota exceeded. Falling back to scraping.");
         return fetchWithScraping(query, searchType);
       }
       const errorData = await response.json();
@@ -145,7 +179,8 @@ export async function searchNews({ query, page, safe }: SearchParams): Promise<S
 }
 
 
-export async function searchVideos({ query, page, safe }: SearchParams): Promise<{ items: VideoSearchResultItem[] } & Omit<SearchResults, 'items'> | { error: string }> {
+export async function searchVideos({ query, page, safe }: SearchParams): Promise<{ items: VideoSearchResultItem[] } & Omit<SearchResults, 'items'> | { error:string }> {
+  // First, get web search results which might contain video links.
   const searchResult = await search({ query: `${query} video`, page, safe });
   
   if ('error' in searchResult) {
@@ -156,13 +191,16 @@ export async function searchVideos({ query, page, safe }: SearchParams): Promise
     return { ...searchResult, items: [] };
   }
 
+  // Then, for each result, fetch its page content and extract video data.
   const videoDataPromises = searchResult.items.map(async (item: SearchResultItem): Promise<VideoSearchResultItem> => {
     try {
-      const response = await fetch(item.link, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' }});
-      if (!response.ok) {
+      // Use the reliable proxy fetcher
+      const pageContentResult = await fetchPageContentFromProxy(item.link);
+      if ('error' in pageContentResult) {
+        // If fetching page fails, return the original item without video data
         return item;
       }
-      const htmlContent = await response.text();
+      const htmlContent = pageContentResult.content;
       const extractedData = extractVideoData(htmlContent);
       
       return {
@@ -171,8 +209,8 @@ export async function searchVideos({ query, page, safe }: SearchParams): Promise
         coverImageUrl: extractedData.coverImageUrl,
       };
     } catch (e) {
-      console.error(`Failed to process URL ${item.link}:`, e);
-      return item;
+      console.error(`Failed to process URL ${item.link} for video data:`, e);
+      return item; // Return original item on error
     }
   });
 
@@ -188,8 +226,13 @@ export async function fetchPageContent(url: string): Promise<{content: string} |
             return { content: '' }; // Let the iframe handle it directly
         }
 
-        const pageContentResult = await fetchPageContentFlow({ url });
+        // Use the reliable proxy fetcher for simplified view
+        const pageContentResult = await fetchPageContentFromProxy(url);
+        if ('error' in pageContentResult) {
+            return { error: pageContentResult.error };
+        }
         return { content: pageContentResult.content };
+
     } catch (error) {
         console.error('Fetch Page Content Error:', error);
         if (error instanceof Error) {
