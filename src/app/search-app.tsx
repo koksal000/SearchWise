@@ -1,0 +1,369 @@
+'use client';
+
+import { useState, useEffect, FormEvent, useRef, useCallback } from 'react';
+import { useSettings } from '@/hooks/use-settings';
+import { useHistory } from '@/hooks/use-history';
+import { useTabs } from '@/hooks/use-tabs';
+import { SearchResultItem, SearchType, ImageSearchResultItem, VideoSearchResultItem } from '@/lib/types';
+import { search, searchImages, searchVideos, searchNews } from '@/app/actions';
+import { getImageSearchTerms } from '@/ai/flows/get-image-search-terms';
+import { useToast } from '@/hooks/use-toast';
+import { isValidUrl, normalizeUrl } from '@/lib/url-handler';
+
+import { Header } from './header';
+import { SearchHome } from './search-home';
+import { FilterPills } from './filter-pills';
+import { SearchResults } from './search-results';
+import { Pagination } from './pagination';
+import { HistoryPanel } from './panels/history-panel';
+import { SettingsPanel } from './panels/settings-panel';
+import { TabsPanel } from './panels/tabs-panel';
+import { WebViewer } from './web-viewer';
+import { ImageSearchDialog } from './image-search-dialog';
+import { SecurityWarningDialog } from './security-warning-dialog';
+import { UrlConfirmationDialog } from './url-confirmation-dialog';
+
+type View = 'home' | 'results';
+
+export function SearchApp() {
+  const [view, setView] = useState<View>('home');
+  const [query, setQuery] = useState('');
+  const [activeQuery, setActiveQuery] = useState('');
+  const [results, setResults] = useState<(SearchResultItem | ImageSearchResultItem | VideoSearchResultItem)[] | null>(null);
+  const [searchInfo, setSearchInfo] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [activeFilter, setActiveFilter] = useState<SearchType>('all');
+  
+  const [isHistoryPanelOpen, setHistoryPanelOpen] = useState(false);
+  const [isSettingsPanelOpen, setSettingsPanelOpen] = useState(false);
+  const [isTabsPanelOpen, setTabsPanelOpen] = useState(false);
+  const [isImageSearchDialogOpen, setImageSearchDialogOpen] = useState(false);
+
+  const [securityWarning, setSecurityWarning] = useState<{ url: string; title: string } | null>(null);
+  const [urlConfirmation, setUrlConfirmation] = useState<{ query: string, url: string; title: string } | null>(null);
+  
+  const { settings } = useSettings();
+  const { addToHistory } = useHistory();
+  const { activeTab, addTab, setActiveTab, getTabById } = useTabs();
+  const { toast } = useToast();
+
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+
+  const handleSearch = useCallback(async (searchQuery: string, page: number = 1, filter: SearchType = 'all') => {
+    if (!searchQuery.trim()) return;
+
+    setIsLoading(true);
+    setView('results');
+    setResults(null);
+    setSearchInfo('');
+    setCurrentPage(page);
+    setActiveFilter(filter);
+    setActiveQuery(searchQuery);
+    
+    if (settings.saveHistory) {
+      addToHistory(searchQuery);
+    }
+
+    try {
+      let response;
+      const safe = settings.safeSearch ? 'active' : 'off';
+      
+      switch (filter) {
+        case 'images':
+          response = await searchImages({ query: searchQuery, page, safe });
+          break;
+        case 'videos':
+          response = await searchVideos({ query: searchQuery, page, safe });
+          break;
+        case 'news':
+            response = await searchNews({ query: searchQuery, page, safe });
+            break;
+        case 'all':
+        default:
+          response = await search({ query: searchQuery, page, safe });
+          break;
+      }
+
+      if (response && 'error' in response) {
+        toast({
+            variant: "destructive",
+            title: "Arama Hatası",
+            description: response.error,
+        });
+        setResults([]);
+        setIsLoading(false);
+        return;
+      }
+      
+      let items = response.items || [];
+
+      setResults(items);
+      if (response.searchInformation) {
+        const time = response.searchInformation.formattedSearchTime;
+        const total = response.searchInformation.formattedTotalResults;
+        setSearchInfo(time && total ? `Yaklaşık ${total} sonuç (${time} saniye)` : '');
+      }
+    } catch (error) {
+      console.error('Arama hatası:', error);
+      toast({
+        variant: "destructive",
+        title: "Arama Başarısız Oldu",
+        description: error instanceof Error ? error.message : "Bilinmeyen bir hata oluştu.",
+      });
+      setResults([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [settings.saveHistory, settings.safeSearch, addToHistory, toast]);
+
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'tr-TR';
+
+      recognition.onstart = () => setIsListening(true);
+      recognition.onend = () => setIsListening(false);
+      recognition.onerror = (event) => {
+        console.error('Konuşma tanıma hatası', event.error);
+        let errorMessage = event.error;
+        if (event.error === 'network') {
+          errorMessage = 'Ağ hatası. Lütfen internet bağlantınızı kontrol edin.';
+        } else if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          errorMessage = 'Mikrofon erişimine izin verilmedi. Lütfen tarayıcı ayarlarınızı kontrol edin.';
+        }
+        toast({ variant: "destructive", title: "Sesli Arama Hatası", description: errorMessage });
+        setIsListening(false);
+      };
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        setQuery(transcript);
+        handleSearch(transcript, 1, activeFilter);
+      };
+      recognitionRef.current = recognition;
+    }
+  }, [activeFilter, toast, handleSearch]);
+
+  const handleVoiceSearch = () => {
+    if (recognitionRef.current && !isListening) {
+      recognitionRef.current.start();
+    } else if (recognitionRef.current && isListening) {
+      recognitionRef.current.stop();
+    } else {
+        toast({ variant: "destructive", title: "Desteklenmiyor", description: "Sesli arama tarayıcınızda desteklenmiyor." });
+    }
+  };
+
+  const handleImageSearch = () => {
+    setImageSearchDialogOpen(true);
+  };
+  
+  const handleImageSearchSubmit = async (file: File) => {
+    setIsLoading(true);
+    setImageSearchDialogOpen(false);
+    toast({ title: 'Resim Analiz Ediliyor...', description: 'Arama terimleri oluşturulurken lütfen bekleyin.' });
+
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = async () => {
+        const photoDataUri = reader.result as string;
+        const result = await getImageSearchTerms({ photoDataUri });
+        
+        if (result.terms && result.terms.length > 0) {
+            const firstTerm = result.terms[0];
+            setQuery(firstTerm);
+            await handleSearch(firstTerm, 1, 'all');
+        } else {
+             toast({ variant: "destructive", title: 'Analiz Başarısız', description: 'Resimden arama terimleri oluşturulamadı.' });
+        }
+        setIsLoading(false);
+      };
+    } catch (error) {
+      console.error('Resim arama hatası:', error);
+      toast({
+        variant: "destructive",
+        title: "Resim Analizi Başarısız Oldu",
+        description: error instanceof Error ? error.message : "Bilinmeyen bir hata oluştu.",
+      });
+      setIsLoading(false);
+    }
+  };
+
+  const currentTab = getTabById(activeTab || '');
+
+  const openUrl = (url: string, title: string) => {
+    if (settings.inAppWebView) {
+      addTab(url, title);
+    } else {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  }
+
+  const navigateToUrl = (url: string, title: string) => {
+    if (url.startsWith('http://')) {
+      setSecurityWarning({ url, title });
+    } else {
+      openUrl(url, title);
+    }
+  }
+
+  const submitSearch = (e: FormEvent) => {
+    e.preventDefault();
+    handleNavigation(query);
+  };
+
+  const handleNavigation = (navQuery: string) => {
+    if (isValidUrl(navQuery)) {
+        const url = normalizeUrl(navQuery);
+        const title = new URL(url).hostname;
+        setUrlConfirmation({ query: navQuery, url, title });
+      } else {
+        setActiveTab(null); // Arama ise web görüntüleyiciyi kapat
+        handleSearch(navQuery, 1, activeFilter);
+      }
+  }
+  
+  const handlePageChange = (newPage: number) => {
+    handleSearch(activeQuery, newPage, activeFilter);
+    window.scrollTo(0, 0);
+  };
+  
+  const handleFilterChange = (newFilter: SearchType) => {
+    setQuery(activeQuery);
+    handleSearch(activeQuery, 1, newFilter);
+  };
+
+  const handleHistoryItemClick = (historyQuery: string) => {
+    setQuery(historyQuery);
+    handleNavigation(historyQuery);
+  };
+  
+  const handleResultClick = (url: string, title: string) => {
+    openUrl(url, title);
+  };
+
+  const handleTabItemClick = (id: string) => {
+    setActiveTab(id);
+  };
+
+  const closeWebViewer = () => {
+    setActiveTab(null);
+  };
+
+  const goHome = () => {
+    setView('home');
+    setQuery('');
+    setActiveQuery('');
+    setResults(null);
+  }
+
+  const onConfirmSecurityWarning = () => {
+    if (securityWarning) {
+      openUrl(securityWarning.url, securityWarning.title);
+      setSecurityWarning(null);
+    }
+  };
+
+  const handleUrlConfirmation = (decision: 'navigate' | 'search') => {
+    if (!urlConfirmation) return;
+
+    if (decision === 'navigate') {
+        navigateToUrl(urlConfirmation.url, urlConfirmation.title);
+    } else {
+        setActiveTab(null); // Arama ise web görüntüleyiciyi kapat
+        handleSearch(urlConfirmation.query, 1, activeFilter);
+    }
+    setUrlConfirmation(null);
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      {view === 'home' ? (
+        <SearchHome 
+          query={query} 
+          setQuery={setQuery} 
+          onSearch={submitSearch}
+          onVoiceSearch={handleVoiceSearch}
+          onImageSearch={handleImageSearch}
+          isListening={isListening}
+          onHistoryClick={() => setHistoryPanelOpen(true)}
+          onSettingsClick={() => setSettingsPanelOpen(true)}
+          onTabsClick={() => setTabsPanelOpen(true)}
+        />
+      ) : (
+        <>
+          <Header
+            query={query}
+            setQuery={setQuery}
+            onSearch={submitSearch}
+            onLogoClick={goHome}
+            onHistoryClick={() => setHistoryPanelOpen(true)}
+            onSettingsClick={() => setSettingsPanelOpen(true)}
+            onTabsClick={() => setTabsPanelOpen(true)}
+            onVoiceSearch={handleVoiceSearch}
+            onImageSearch={handleImageSearch}
+            isListening={isListening}
+          />
+          <main>
+            <FilterPills activeFilter={activeFilter} onFilterChange={handleFilterChange} />
+            <SearchResults
+              query={activeQuery}
+              results={results}
+              searchInfo={searchInfo}
+              isLoading={isLoading}
+              searchType={activeFilter}
+              onResultClick={handleResultClick}
+            />
+            {results && results.length > 0 && !isLoading && (
+              <Pagination
+                currentPage={currentPage}
+                onPageChange={handlePageChange}
+                hasNextPage={results.length >= 10}
+              />
+            )}
+          </main>
+        </>
+      )}
+
+      {currentTab && <WebViewer tab={currentTab} onClose={closeWebViewer} onNavigate={handleNavigation} />}
+
+      <ImageSearchDialog
+        isOpen={isImageSearchDialogOpen}
+        onOpenChange={setImageSearchDialogOpen}
+        onSearch={handleImageSearchSubmit}
+      />
+      
+      <HistoryPanel 
+        isOpen={isHistoryPanelOpen} 
+        onOpenChange={setHistoryPanelOpen}
+        onHistoryItemClick={handleHistoryItemClick}
+      />
+      <SettingsPanel 
+        isOpen={isSettingsPanelOpen} 
+        onOpenChange={setSettingsPanelOpen}
+      />
+      <TabsPanel
+        isOpen={isTabsPanelOpen}
+        onOpenChange={setTabsPanelOpen}
+        onTabItemClick={handleTabItemClick}
+      />
+      <SecurityWarningDialog
+        isOpen={!!securityWarning}
+        onClose={() => setSecurityWarning(null)}
+        onConfirm={onConfirmSecurityWarning}
+      />
+      <UrlConfirmationDialog
+        isOpen={!!urlConfirmation}
+        onClose={() => setUrlConfirmation(null)}
+        onConfirm={(decision) => handleUrlConfirmation(decision)}
+        url={urlConfirmation?.url || ''}
+      />
+    </div>
+  );
+}

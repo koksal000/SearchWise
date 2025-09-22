@@ -45,9 +45,9 @@ export function SearchResults({
 
   const renderResults = () => {
     switch (searchType) {
-      case 'images':
+      case SearchType.IMAGES:
         return <ImageResultsGrid items={results as ImageSearchResultItem[]} onResultClick={onResultClick} />;
-      case 'videos':
+      case SearchType.VIDEOS:
         return (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {(results as VideoSearchResultItem[]).map((item, index) => (
@@ -55,7 +55,7 @@ export function SearchResults({
             ))}
           </div>
         );
-      case 'news':
+      case SearchType.NEWS:
         return (
           <div className="flex flex-col gap-6 max-w-4xl mx-auto">
             {(results as SearchResultItem[]).map((item, index) => (
@@ -63,7 +63,7 @@ export function SearchResults({
             ))}
           </div>
         );
-      case 'all':
+      case SearchType.ALL:
       default:
         return (
           <div className="flex flex-col gap-8">

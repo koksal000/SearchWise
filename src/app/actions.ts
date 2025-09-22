@@ -1,10 +1,12 @@
 'use server';
 
 import { extractVideoData } from '@/ai/flows/extract-video-data-from-search-results';
-import { SearchResults, ImageSearchResults, VideoSearchResultItem, SearchResultItem } from '@/lib/types';
+import { scrapeGoogleSearchResults } from '@/ai/flows/scrape-google-search-results';
+import { SearchResults, ImageSearchResults, VideoSearchResultItem, SearchResultItem, SearchType } from '@/lib/types';
+import { nanoid } from 'nanoid';
 
-const API_KEY = process.env.GOOGLE_API_KEY || 'YOUR_API_KEY_HERE';
-const CX_ID = process.env.GOOGLE_CX_ID || 'b7d5b202df7604a20';
+const API_KEY = process.env.GOOGLE_API_KEY;
+const CX_ID = process.env.GOOGLE_CX_ID;
 const API_URL = 'https://www.googleapis.com/customsearch/v1';
 
 type SearchParams = {
@@ -13,9 +15,72 @@ type SearchParams = {
   safe: 'active' | 'off';
 }
 
-async function fetchFromApi(params: URLSearchParams): Promise<any> {
-  if (API_KEY === 'YOUR_API_KEY_HERE') {
-    return { error: 'NO_API_KEY' };
+async function fetchWithScraping(query: string, searchType: SearchType): Promise<SearchResults | { error: string }> {
+    console.log(`API quota likely exceeded. Falling back to scraping for ${searchType} search.`);
+    let url = '';
+    switch (searchType) {
+        case 'images':
+            url = `https://www.google.com/search?q=${encodeURIComponent(query)}&udm=2`;
+            break;
+        case 'news':
+            url = `https://www.google.com/search?q=${encodeURIComponent(query)}&tbm=nws`;
+            break;
+        case 'all':
+        case 'videos': // Videos will also use general search scraping
+        default:
+            url = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+            break;
+    }
+
+    try {
+        const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }});
+        if (!response.ok) {
+            throw new Error(`Failed to fetch Google search page. Status: ${response.status}`);
+        }
+        const htmlContent = await response.text();
+        
+        const scrapedResults = await scrapeGoogleSearchResults({ htmlContent, searchType, query });
+
+        // Transform scraped results into the format expected by the frontend
+        const items = scrapedResults.results.map(r => ({
+            ...r,
+            displayLink: r.link ? new URL(r.link).hostname : '',
+            // Add dummy pagemap if needed for other result types to not crash
+            pagemap: r.imageUrl ? { cse_thumbnail: [{ src: r.imageUrl }] } : {},
+        }));
+
+        const searchInformation = {
+             formattedTotalResults: `${items.length}`,
+             formattedSearchTime: `0.00`,
+        }
+
+        if (searchType === 'images') {
+             const imageItems = items.map(item => ({
+                title: item.title,
+                link: item.link,
+                displayLink: item.displayLink,
+                image: {
+                    contextLink: item.link,
+                    thumbnailLink: item.imageUrl || '',
+                    width: 500, // dummy data
+                    height: 500, // dummy data
+                }
+             }));
+             return { searchInformation, items: imageItems as any };
+        }
+
+        return { searchInformation, items: items as SearchResultItem[] };
+
+    } catch (scrapingError) {
+        console.error('Scraping fallback failed:', scrapingError);
+        return { error: 'Arama API kotası aşıldı ve yedek arama mekanizması başarısız oldu.' };
+    }
+}
+
+
+async function fetchFromApi(params: URLSearchParams, query: string, searchType: SearchType): Promise<any> {
+  if (!API_KEY || !CX_ID) {
+    return fetchWithScraping(query, searchType);
   }
   try {
     const response = await fetch(`${API_URL}?${params.toString()}`);
@@ -23,7 +88,8 @@ async function fetchFromApi(params: URLSearchParams): Promise<any> {
       const errorData = await response.json();
       console.error('Google API Error:', errorData.error);
       if (errorData.error.code === 429) {
-        return { error: 'API_QUOTA_EXCEEDED' };
+        // Quota exceeded, fall back to scraping
+        return fetchWithScraping(query, searchType);
       }
       throw new Error(errorData.error?.message || 'An error occurred with the search API.');
     }
@@ -39,40 +105,40 @@ async function fetchFromApi(params: URLSearchParams): Promise<any> {
 
 export async function search({ query, page, safe }: SearchParams): Promise<SearchResults | { error: string }> {
   const params = new URLSearchParams({
-    key: API_KEY,
-    cx: CX_ID,
+    key: API_KEY!,
+    cx: CX_ID!,
     q: query,
     start: ((page - 1) * 10 + 1).toString(),
     safe,
     hl: 'en',
   });
-  return fetchFromApi(params);
+  return fetchFromApi(params, query, 'all');
 }
 
 export async function searchImages({ query, page, safe }: SearchParams): Promise<ImageSearchResults | { error: string }> {
   const params = new URLSearchParams({
-    key: API_KEY,
-    cx: CX_ID,
+    key: API_KEY!,
+    cx: CX_ID!,
     q: query,
     start: ((page - 1) * 10 + 1).toString(),
     safe,
     hl: 'en',
     searchType: 'image',
   });
-  return fetchFromApi(params);
+  return fetchFromApi(params, query, 'images');
 }
 
 export async function searchNews({ query, page, safe }: SearchParams): Promise<SearchResults | { error: string }> {
     const params = new URLSearchParams({
-      key: API_KEY,
-      cx: CX_ID,
+      key: API_KEY!,
+      cx: CX_ID!,
       q: query,
       start: ((page - 1) * 10 + 1).toString(),
       safe,
       hl: 'en',
       sort: 'date',
     });
-    return fetchFromApi(params);
+    return fetchFromApi(params, query, 'news');
 }
 
 
@@ -89,7 +155,7 @@ export async function searchVideos({ query, page, safe }: SearchParams): Promise
 
   const videoDataPromises = searchResult.items.map(async (item: SearchResultItem): Promise<VideoSearchResultItem> => {
     try {
-      const response = await fetch(item.link, { headers: { 'User-Agent': 'Mozilla/5.0' }});
+      const response = await fetch(item.link, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }});
       if (!response.ok) {
         return item; // Return original item if fetch fails
       }

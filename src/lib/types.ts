@@ -31,7 +31,7 @@ export type SearchResults = {
     formattedTotalResults: string;
     formattedSearchTime: string;
   };
-  items: SearchResultItem[];
+  items: (SearchResultItem | ImageSearchResultItem)[];
 };
 
 export type ImageSearchResults = {
@@ -42,7 +42,12 @@ export type ImageSearchResults = {
   items: ImageSearchResultItem[];
 };
 
-export type SearchType = "all" | "images" | "videos" | "news";
+export enum SearchType {
+    ALL = "all",
+    IMAGES = "images",
+    VIDEOS = "videos",
+    NEWS = "news"
+}
 
 export type AppSettings = {
   theme: "light" | "dark";
