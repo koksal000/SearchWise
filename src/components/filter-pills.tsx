@@ -19,14 +19,14 @@ const filters: { id: SearchType; label: string; icon: React.ComponentType<{ clas
 
 export function FilterPills({ activeFilter, onFilterChange }: FilterPillsProps) {
   return (
-    <div className="flex w-full items-center justify-center gap-2 border-b p-4 sm:justify-start">
+    <div className="flex w-full items-center justify-center gap-1 border-b p-3 sm:justify-start">
       {filters.map((filter) => (
         <Button
           key={filter.id}
           variant={activeFilter === filter.id ? 'secondary' : 'ghost'}
           size="sm"
           onClick={() => onFilterChange(filter.id)}
-          className="rounded-full"
+          className="h-8 rounded-full px-3"
         >
           <filter.icon className="mr-2 h-4 w-4" />
           {filter.label}
