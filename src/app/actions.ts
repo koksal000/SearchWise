@@ -21,7 +21,7 @@ async function fetchPageContentFromProxy(url: string): Promise<{ content: string
         });
 
         if (!response.ok) {
-             throw new Error(`Failed to fetch URL: ${response.statusText}`);
+             throw new Error(`Failed to fetch URL: ${response.status} ${response.statusText}`);
         }
         const content = await response.text();
         return { content };
@@ -31,7 +31,7 @@ async function fetchPageContentFromProxy(url: string): Promise<{ content: string
         if (e instanceof Error) {
             return { error: e.message };
         }
-        return { error: 'An unknown error occurred while fetching page content via proxy.' };
+        return { error: 'An unknown error occurred while fetching page content.' };
     }
 }
 
@@ -43,7 +43,7 @@ async function fetchWithScraping(query: string, searchType: SearchType): Promise
     
     switch (searchType) {
         case 'images':
-            url = `https://www.google.com/search?q=${encodedQuery}&udm=2`;
+            url = `https://www.google.com/search?q=${encodedQuery}&tbm=isch`;
             break;
         case 'news':
             url = `https://www.google.com/search?q=${encodedQuery}&tbm=nws`;
@@ -69,8 +69,9 @@ async function fetchWithScraping(query: string, searchType: SearchType): Promise
         const scrapedResults = extractScrapedResults(htmlContent, searchType);
 
         if (!scrapedResults || scrapedResults.length === 0) {
-             console.log("Scraping found no results for query:", query);
-            return { searchInformation: { formattedTotalResults: '0', formattedSearchTime: '0.00' }, items: [] };
+            const errorMessage = "Scraping fallback couldn't find any results. This might be due to changes in Google's page structure.";
+            console.warn(errorMessage, "Query:", query);
+            return { error: errorMessage };
         }
 
         const searchInformation = {
@@ -124,11 +125,14 @@ async function fetchFromApi(params: URLSearchParams, query: string, searchType: 
       const errorData = await response.json();
       const message = errorData.error?.message || 'An error occurred with the Search API.';
       console.error('Google API Error:', message);
+      // Don't fallback on every error, only on quota errors.
+      // For other errors, it's better to show the message to the user.
       return { error: message };
     }
     return await response.json();
   } catch (error) {
     console.error('Fetch API Error:', error);
+    // Fallback to scraping on network-like errors
     return fetchWithScraping(query, searchType);
   }
 }
@@ -173,7 +177,9 @@ export async function searchNews({ query, page, safe }: SearchParams): Promise<S
 
 
 export async function searchVideos({ query, page, safe }: SearchParams): Promise<{ items: VideoSearchResultItem[] } & Omit<SearchResults, 'items'> | { error:string }> {
-  const searchResult = await search({ query: `${query} video`, page, safe });
+  // Video scraping is more reliable than the standard API for getting direct video links.
+  // So we prioritize scraping for videos.
+  const searchResult = await fetchWithScraping(`${query} video`, 'videos');
   
   if ('error' in searchResult) {
     return searchResult;
@@ -185,9 +191,10 @@ export async function searchVideos({ query, page, safe }: SearchParams): Promise
 
   const videoDataPromises = searchResult.items.map(async (item: SearchResultItem): Promise<VideoSearchResultItem> => {
     try {
+      // Use the same proxy mechanism to fetch the content of the video's page
       const pageContentResult = await fetchPageContentFromProxy(item.link);
       if ('error' in pageContentResult) {
-        return item;
+        return item; // Return the item without extra data if page fetch fails
       }
       const htmlContent = pageContentResult.content;
       const extractedData = extractVideoData(htmlContent);
@@ -199,7 +206,7 @@ export async function searchVideos({ query, page, safe }: SearchParams): Promise
       };
     } catch (e) {
       console.error(`Failed to process URL ${item.link} for video data:`, e);
-      return item; 
+      return item; // Return original item on error
     }
   });
 

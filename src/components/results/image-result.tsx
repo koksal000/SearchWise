@@ -12,13 +12,13 @@ type ImageResultsGridProps = {
 export function ImageResultsGrid({ items, onResultClick }: ImageResultsGridProps) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-      {items.filter(item => item.image).map((item, index) => (
+      {items.filter(item => item.image && item.image.thumbnailLink).map((item, index) => (
         <a
           key={index}
-          href={item.image.contextLink}
+          href={item.link} // The link to the page containing the image
           onClick={(e) => {
             e.preventDefault();
-            onResultClick(item.image.contextLink, item.title);
+            onResultClick(item.link, item.title);
           }}
           className="group block"
         >
@@ -31,6 +31,7 @@ export function ImageResultsGrid({ items, onResultClick }: ImageResultsGridProps
                   fill
                   className="object-cover"
                   sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
+                  onError={(e) => e.currentTarget.style.display = 'none'} // Hide broken images
                 />
               </div>
               <div className="p-2">
