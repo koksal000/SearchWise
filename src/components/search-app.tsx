@@ -8,6 +8,7 @@ import { SearchResultItem, SearchType, ImageSearchResultItem, VideoSearchResultI
 import { search, searchImages, searchVideos, searchNews, filterInAppFriendlyResults } from '@/app/actions';
 import { getImageSearchTerms } from '@/ai/flows/get-image-search-terms';
 import { useToast } from '@/hooks/use-toast';
+import { isValidUrl, normalizeUrl } from '@/lib/url-handler';
 
 import { Header } from './header';
 import { SearchHome } from './search-home';
@@ -19,6 +20,7 @@ import { SettingsPanel } from './panels/settings-panel';
 import { TabsPanel } from './panels/tabs-panel';
 import { WebViewer } from './web-viewer';
 import { ImageSearchDialog } from './image-search-dialog';
+import { SecurityWarningDialog } from './security-warning-dialog';
 
 type View = 'home' | 'results';
 
@@ -36,6 +38,8 @@ export function SearchApp() {
   const [isSettingsPanelOpen, setSettingsPanelOpen] = useState(false);
   const [isTabsPanelOpen, setTabsPanelOpen] = useState(false);
   const [isImageSearchDialogOpen, setImageSearchDialogOpen] = useState(false);
+
+  const [securityWarning, setSecurityWarning] = useState<{ url: string; title: string } | null>(null);
   
   const { settings } = useSettings();
   const { addToHistory } = useHistory();
@@ -63,7 +67,6 @@ export function SearchApp() {
     try {
       let response;
       const safe = settings.safeSearch ? 'active' : 'off';
-      const shouldFilter = settings.inAppWebView;
       
       switch (filter) {
         case 'images':
@@ -97,11 +100,6 @@ export function SearchApp() {
       
       let items = response.items || [];
 
-      if (shouldFilter && items.length > 0) {
-        // We are no longer filtering here, but keeping the block in case we add it back
-        // For now, it does nothing.
-      }
-
       setResults(items);
       if (response.searchInformation) {
         setSearchInfo(`About ${response.searchInformation.formattedTotalResults} results (${response.searchInformation.formattedSearchTime} seconds)`);
@@ -117,7 +115,7 @@ export function SearchApp() {
     } finally {
       setIsLoading(false);
     }
-  }, [settings.saveHistory, settings.safeSearch, settings.inAppWebView, addToHistory, toast]);
+  }, [settings.saveHistory, settings.safeSearch, addToHistory, toast]);
 
 
   useEffect(() => {
@@ -126,6 +124,7 @@ export function SearchApp() {
       const recognition = new SpeechRecognition();
       recognition.continuous = false;
       recognition.interimResults = false;
+      recognition.lang = 'en-US';
 
       recognition.onstart = () => setIsListening(true);
       recognition.onend = () => setIsListening(false);
@@ -195,9 +194,28 @@ export function SearchApp() {
 
   const currentTab = getTabById(activeTab || '');
 
+  const openUrl = (url: string, title: string) => {
+    if (settings.inAppWebView) {
+      addTab(url, title);
+    } else {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  }
+
   const submitSearch = (e: FormEvent) => {
     e.preventDefault();
-    handleSearch(query, 1, activeFilter);
+    if (isValidUrl(query)) {
+      const url = normalizeUrl(query);
+      const title = new URL(url).hostname;
+
+      if (url.startsWith('http://')) {
+        setSecurityWarning({ url, title });
+      } else {
+        openUrl(url, title);
+      }
+    } else {
+      handleSearch(query, 1, activeFilter);
+    }
   };
   
   const handlePageChange = (newPage: number) => {
@@ -212,15 +230,17 @@ export function SearchApp() {
 
   const handleHistoryItemClick = (historyQuery: string) => {
     setQuery(historyQuery);
-    handleSearch(historyQuery, 1, 'all');
+    if (isValidUrl(historyQuery)) {
+        const url = normalizeUrl(historyQuery);
+        const title = new URL(url).hostname;
+        openUrl(url, title);
+    } else {
+        handleSearch(historyQuery, 1, 'all');
+    }
   };
   
   const handleResultClick = (url: string, title: string) => {
-    if (settings.inAppWebView) {
-      addTab(url, title);
-    } else {
-      window.open(url, '_blank', 'noopener,noreferrer');
-    }
+    openUrl(url, title);
   };
 
   const handleTabItemClick = (id: string) => {
@@ -237,6 +257,13 @@ export function SearchApp() {
     setActiveQuery('');
     setResults(null);
   }
+
+  const onConfirmSecurityWarning = () => {
+    if (securityWarning) {
+      openUrl(securityWarning.url, securityWarning.title);
+      setSecurityWarning(null);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -305,6 +332,11 @@ export function SearchApp() {
         isOpen={isTabsPanelOpen}
         onOpenChange={setTabsPanelOpen}
         onTabItemClick={handleTabItemClick}
+      />
+      <SecurityWarningDialog
+        isOpen={!!securityWarning}
+        onClose={() => setSecurityWarning(null)}
+        onConfirm={onConfirmSecurityWarning}
       />
     </div>
   );
