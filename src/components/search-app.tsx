@@ -81,7 +81,17 @@ export function SearchApp() {
           break;
       }
 
-      if ('error' in response) {
+      if (response && 'error' in response) {
+        if (response.error === 'API_QUOTA_EXCEEDED') {
+            toast({
+                variant: "destructive",
+                title: "Daily Quota Reached",
+                description: "The daily search quota has been reached. Please add your own API key in an environment variable to continue.",
+            });
+            setResults([]);
+            setIsLoading(false);
+            return;
+        }
         throw new Error(response.error);
       }
       
@@ -115,14 +125,17 @@ export function SearchApp() {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       const recognition = new SpeechRecognition();
       recognition.continuous = false;
-      recognition.lang = 'en-US';
       recognition.interimResults = false;
 
       recognition.onstart = () => setIsListening(true);
       recognition.onend = () => setIsListening(false);
       recognition.onerror = (event) => {
         console.error('Speech recognition error', event.error);
-        toast({ variant: "destructive", title: "Voice Search Error", description: event.error });
+        let errorMessage = event.error;
+        if (event.error === 'network') {
+          errorMessage = 'Network error. Please check your internet connection.';
+        }
+        toast({ variant: "destructive", title: "Voice Search Error", description: errorMessage });
         setIsListening(false);
       };
       recognition.onresult = (event) => {
