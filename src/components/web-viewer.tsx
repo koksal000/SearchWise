@@ -1,11 +1,13 @@
 'use client';
 
-import { X, ExternalLink, RefreshCw, Search } from 'lucide-react';
+import { X, ExternalLink, RefreshCw, Search, ShieldAlert } from 'lucide-react';
 import { Button } from './ui/button';
 import { useRef, useState, useEffect, FormEvent } from 'react';
 import { Loader2 } from 'lucide-react';
 import { TabItem } from '@/lib/types';
 import { Input } from './ui/input';
+import { fetchPageContent } from '@/app/actions';
+import { useToast } from '@/hooks/use-toast';
 
 type WebViewerProps = {
   tab: TabItem | undefined;
@@ -18,23 +20,67 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [displayUrl, setDisplayUrl] = useState(tab?.url || '');
   const [viewKey, setViewKey] = useState(Date.now());
+  const [useSrcDoc, setUseSrcDoc] = useState(false);
+  const [srcDocContent, setSrcDocContent] = useState('');
+  const { toast } = useToast();
+
+  const loadContentAsProxy = async (url: string) => {
+    setIsLoading(true);
+    const result = await fetchPageContent(url);
+    if ('content' in result) {
+      // Add a <base> tag to resolve relative paths
+      const baseTag = `<base href="${new URL(url).origin}">`;
+      setSrcDocContent(baseTag + result.content);
+      setUseSrcDoc(true);
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Failed to load page",
+        description: result.error,
+      });
+      // Fallback to trying to load in iframe directly on error
+      setUseSrcDoc(false);
+    }
+    setIsLoading(false);
+  }
 
   useEffect(() => {
     if (tab) {
       setIsLoading(true);
       setDisplayUrl(tab.url);
-      setViewKey(Date.now()); // Force iframe to re-render
+      setViewKey(Date.now());
+      setUseSrcDoc(false); // Reset to direct loading first
+      setSrcDocContent('');
     }
   }, [tab]);
-
+  
   const handleLoad = () => {
     setIsLoading(false);
+    // A common way to detect if an iframe was blocked is to check its content.
+    // If the origin is null or 'about:blank' after loading, it was likely blocked.
+    try {
+        if (iframeRef.current && 
+            (!iframeRef.current.contentWindow?.location.href || 
+             iframeRef.current.contentWindow.location.href === 'about:blank')) {
+            if (tab && !useSrcDoc) { // Prevent loop
+                loadContentAsProxy(tab.url);
+            }
+        }
+    } catch (e) {
+        // CORS error means we can't access location, which is a strong indicator of blocking.
+        if (tab && !useSrcDoc) { // Prevent loop
+            loadContentAsProxy(tab.url);
+        }
+    }
   };
   
   const reload = () => {
-    if (iframeRef.current) {
-        setIsLoading(true);
-        iframeRef.current.src = tab?.url || '';
+    if(tab) {
+      setIsLoading(true);
+      setDisplayUrl(tab.url);
+      setViewKey(Date.now());
+      setUseSrcDoc(false);
+      setSrcDocContent('');
     }
   };
   
@@ -57,7 +103,13 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
           </Button>
         </div>
         <form onSubmit={handleSubmit} className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <div className='absolute left-3 top-1/2 -translate-y-1/2'>
+              {useSrcDoc ? (
+                  <ShieldAlert className="h-4 w-4 text-amber-500" title="Viewing via basic fallback"/>
+              ) : (
+                  <Search className="h-4 w-4 text-muted-foreground" />
+              )}
+            </div>
             <Input
                 value={displayUrl}
                 onChange={(e) => setDisplayUrl(e.target.value)}
@@ -77,7 +129,8 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
         <iframe
           key={viewKey}
           ref={iframeRef}
-          src={tab.url}
+          src={!useSrcDoc ? tab.url : undefined}
+          srcDoc={useSrcDoc ? srcDocContent : undefined}
           onLoad={handleLoad}
           onError={() => setIsLoading(false)} // Stop loading indicator on error too
           title={tab.title}
