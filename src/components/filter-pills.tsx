@@ -26,9 +26,9 @@ export function FilterPills({ activeFilter, onFilterChange }: FilterPillsProps) 
           variant={activeFilter === filter.id ? 'secondary' : 'ghost'}
           size="sm"
           onClick={() => onFilterChange(filter.id)}
-          className="h-8 rounded-full px-3"
+          className="h-7 rounded-full px-2"
         >
-          <filter.icon className="mr-2 h-4 w-4" />
+          <filter.icon className="mr-1.5 h-4 w-4" />
           {filter.label}
         </Button>
       ))}
