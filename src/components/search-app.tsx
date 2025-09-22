@@ -90,8 +90,8 @@ export function SearchApp() {
         if (response.error === 'API_QUOTA_EXCEEDED') {
             toast({
                 variant: "destructive",
-                title: "Daily Quota Reached",
-                description: "The daily search quota has been reached. Please add your own API key in an environment variable to continue.",
+                title: "Günlük Kota Aşıldı",
+                description: "Günlük arama kotasına ulaşıldı. Devam etmek için lütfen kendi API anahtarınızı bir ortam değişkenine ekleyin.",
             });
             setResults([]);
             setIsLoading(false);
@@ -104,14 +104,14 @@ export function SearchApp() {
 
       setResults(items);
       if (response.searchInformation) {
-        setSearchInfo(`About ${response.searchInformation.formattedTotalResults} results (${response.searchInformation.formattedSearchTime} seconds)`);
+        setSearchInfo(`Yaklaşık ${response.searchInformation.formattedTotalResults} sonuç (${response.searchInformation.formattedSearchTime} saniye)`);
       }
     } catch (error) {
-      console.error('Search error:', error);
+      console.error('Arama hatası:', error);
       toast({
         variant: "destructive",
-        title: "Search Failed",
-        description: error instanceof Error ? error.message : "An unknown error occurred.",
+        title: "Arama Başarısız Oldu",
+        description: error instanceof Error ? error.message : "Bilinmeyen bir hata oluştu.",
       });
       setResults([]);
     } finally {
@@ -126,17 +126,19 @@ export function SearchApp() {
       const recognition = new SpeechRecognition();
       recognition.continuous = false;
       recognition.interimResults = false;
-      recognition.lang = 'en-US';
+      recognition.lang = 'tr-TR';
 
       recognition.onstart = () => setIsListening(true);
       recognition.onend = () => setIsListening(false);
       recognition.onerror = (event) => {
-        console.error('Speech recognition error', event.error);
+        console.error('Konuşma tanıma hatası', event.error);
         let errorMessage = event.error;
         if (event.error === 'network') {
-          errorMessage = 'Network error. Please check your internet connection.';
+          errorMessage = 'Ağ hatası. Lütfen internet bağlantınızı kontrol edin.';
+        } else if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          errorMessage = 'Mikrofon erişimine izin verilmedi. Lütfen tarayıcı ayarlarınızı kontrol edin.';
         }
-        toast({ variant: "destructive", title: "Voice Search Error", description: errorMessage });
+        toast({ variant: "destructive", title: "Sesli Arama Hatası", description: errorMessage });
         setIsListening(false);
       };
       recognition.onresult = (event) => {
@@ -154,7 +156,7 @@ export function SearchApp() {
     } else if (recognitionRef.current && isListening) {
       recognitionRef.current.stop();
     } else {
-        toast({ variant: "destructive", title: "Not Supported", description: "Voice search is not supported in your browser." });
+        toast({ variant: "destructive", title: "Desteklenmiyor", description: "Sesli arama tarayıcınızda desteklenmiyor." });
     }
   };
 
@@ -165,7 +167,7 @@ export function SearchApp() {
   const handleImageSearchSubmit = async (file: File) => {
     setIsLoading(true);
     setImageSearchDialogOpen(false);
-    toast({ title: 'Analyzing Image...', description: 'Please wait while we generate search terms.' });
+    toast({ title: 'Resim Analiz Ediliyor...', description: 'Arama terimleri oluşturulurken lütfen bekleyin.' });
 
     try {
       const reader = new FileReader();
@@ -179,16 +181,16 @@ export function SearchApp() {
             setQuery(firstTerm);
             await handleSearch(firstTerm, 1, 'all');
         } else {
-             toast({ variant: "destructive", title: 'Analysis Failed', description: 'Could not generate search terms from the image.' });
+             toast({ variant: "destructive", title: 'Analiz Başarısız', description: 'Resimden arama terimleri oluşturulamadı.' });
         }
         setIsLoading(false);
       };
     } catch (error) {
-      console.error('Image search error:', error);
+      console.error('Resim arama hatası:', error);
       toast({
         variant: "destructive",
-        title: "Image Analysis Failed",
-        description: error instanceof Error ? error.message : "An unknown error occurred.",
+        title: "Resim Analizi Başarısız Oldu",
+        description: error instanceof Error ? error.message : "Bilinmeyen bir hata oluştu.",
       });
       setIsLoading(false);
     }
@@ -223,7 +225,7 @@ export function SearchApp() {
         const title = new URL(url).hostname;
         setUrlConfirmation({ query: navQuery, url, title });
       } else {
-        setActiveTab(null); // Close web viewer if it's a search
+        setActiveTab(null); // Arama ise web görüntüleyiciyi kapat
         handleSearch(navQuery, 1, activeFilter);
       }
   }
@@ -275,7 +277,7 @@ export function SearchApp() {
     if (decision === 'navigate') {
         navigateToUrl(urlConfirmation.url, urlConfirmation.title);
     } else {
-        setActiveTab(null); // Close web viewer if it's a search
+        setActiveTab(null); // Arama ise web görüntüleyiciyi kapat
         handleSearch(urlConfirmation.query, 1, activeFilter);
     }
     setUrlConfirmation(null);

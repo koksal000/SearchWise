@@ -27,18 +27,18 @@ export function UrlConfirmationDialog({ isOpen, onClose, onConfirm, url }: UrlCo
           <div className="flex justify-center mb-4">
             <Globe className="h-12 w-12 text-primary" />
           </div>
-          <AlertDialogTitle className="text-center">URL Detected</AlertDialogTitle>
+          <AlertDialogTitle className="text-center">URL Algılandı</AlertDialogTitle>
           <AlertDialogDescription className="text-center">
-            You entered a web address. What would you like to do?
+            Bir web adresi girdiniz. Ne yapmak istersiniz?
           </AlertDialogDescription>
           <div className="font-mono bg-muted text-foreground p-2 rounded-md mt-2 text-sm break-all">{url}</div>
         </AlertDialogHeader>
         <AlertDialogFooter className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <AlertDialogAction onClick={() => onConfirm('search')}>
-            Search Instead
+            Bunun Yerine Ara
           </AlertDialogAction>
           <AlertDialogAction onClick={() => onConfirm('navigate')}>
-            Go to Address
+            Adrese Git
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

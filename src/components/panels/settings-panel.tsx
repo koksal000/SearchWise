@@ -23,15 +23,15 @@ export function SettingsPanel({ isOpen, onOpenChange }: SettingsPanelProps) {
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
       <SheetContent>
         <SheetHeader>
-          <SheetTitle>Settings</SheetTitle>
+          <SheetTitle>Ayarlar</SheetTitle>
           <SheetDescription>
-            Customize your SearchWise experience.
+            SearchWise deneyiminizi özelleştirin.
           </SheetDescription>
         </SheetHeader>
         <div className="grid gap-6 py-6">
           <div className="flex items-center justify-between">
             <Label htmlFor="dark-mode" className="text-base">
-              Dark Mode
+              Karanlık Mod
             </Label>
             <Switch
               id="dark-mode"
@@ -41,7 +41,7 @@ export function SettingsPanel({ isOpen, onOpenChange }: SettingsPanelProps) {
           </div>
           <div className="flex items-center justify-between">
             <Label htmlFor="safe-search" className="text-base">
-              Safe Search
+              Güvenli Arama
             </Label>
             <Switch
               id="safe-search"
@@ -51,7 +51,7 @@ export function SettingsPanel({ isOpen, onOpenChange }: SettingsPanelProps) {
           </div>
           <div className="flex items-center justify-between">
             <Label htmlFor="save-history" className="text-base">
-              Save Search History
+              Arama Geçmişini Kaydet
             </Label>
             <Switch
               id="save-history"
@@ -62,7 +62,7 @@ export function SettingsPanel({ isOpen, onOpenChange }: SettingsPanelProps) {
           <div className="flex flex-col gap-2 rounded-lg border p-4">
              <div className="flex items-center justify-between">
                 <Label htmlFor="in-app-view" className="text-base">
-                Open links in-app
+                Bağlantıları uygulama içinde aç
                 </Label>
                 <Switch
                 id="in-app-view"
@@ -71,7 +71,7 @@ export function SettingsPanel({ isOpen, onOpenChange }: SettingsPanelProps) {
                 />
             </div>
             <p className="text-sm text-muted-foreground">
-                When enabled, links will open inside the app. Some sites may not work correctly.
+                Etkinleştirildiğinde, bağlantılar uygulama içinde açılır. Bazı siteler düzgün çalışmayabilir.
             </p>
           </div>
         </div>

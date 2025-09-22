@@ -35,14 +35,14 @@ function getTimeAgo(timestamp: number): string {
   const now = new Date();
   const past = new Date(timestamp);
   const diffInSeconds = Math.floor((now.getTime() - past.getTime()) / 1000);
-  
-  if (diffInSeconds < 60) return 'Just now';
+
+  if (diffInSeconds < 60) return 'Şimdi';
   const diffInMinutes = Math.floor(diffInSeconds / 60);
-  if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+  if (diffInMinutes < 60) return `${diffInMinutes}d önce`;
   const diffInHours = Math.floor(diffInMinutes / 60);
-  if (diffInHours < 24) return `${diffInHours}h ago`;
+  if (diffInHours < 24) return `${diffInHours}s önce`;
   const diffInDays = Math.floor(diffInHours / 24);
-  return `${diffInDays}d ago`;
+  return `${diffInDays}g önce`;
 }
 
 
@@ -58,9 +58,9 @@ export function HistoryPanel({ isOpen, onOpenChange, onHistoryItemClick }: Histo
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
       <SheetContent className="flex flex-col">
         <SheetHeader>
-          <SheetTitle>Search History</SheetTitle>
+          <SheetTitle>Arama Geçmişi</SheetTitle>
           <SheetDescription>
-            Your recent searches.
+            Son aramalarınız.
           </SheetDescription>
         </SheetHeader>
         <div className="flex-grow overflow-hidden">
@@ -81,7 +81,7 @@ export function HistoryPanel({ isOpen, onOpenChange, onHistoryItemClick }: Histo
                 </div>
               ) : (
                 <div className="flex h-full items-center justify-center text-muted-foreground">
-                  <p>No history yet.</p>
+                  <p>Henüz geçmiş yok.</p>
                 </div>
               )}
             </div>
@@ -93,19 +93,19 @@ export function HistoryPanel({ isOpen, onOpenChange, onHistoryItemClick }: Histo
                 <AlertDialogTrigger asChild>
                     <Button variant="outline" className="w-full">
                         <Trash2 className="mr-2 h-4 w-4" />
-                        Clear History
+                        Geçmişi Temizle
                     </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This will permanently delete your search history. This action cannot be undone.
+                        Bu işlem arama geçmişinizi kalıcı olarak silecek. Bu eylem geri alınamaz.
                     </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={clearHistory}>Continue</AlertDialogAction>
+                    <AlertDialogCancel>İptal</AlertDialogCancel>
+                    <AlertDialogAction onClick={clearHistory}>Devam Et</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

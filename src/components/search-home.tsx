@@ -25,7 +25,7 @@ export function SearchHome({ query, setQuery, onSearch, onVoiceSearch, onImageSe
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
               type="search"
-              placeholder={isListening ? "Listening..." : "Search the web with Wise"}
+              placeholder={isListening ? "Dinleniyor..." : "Wise ile internette arama yap"}
               className="w-full rounded-full bg-card py-6 pl-12 pr-48 text-lg"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -41,7 +41,7 @@ export function SearchHome({ query, setQuery, onSearch, onVoiceSearch, onImageSe
             </div>
             <div className="absolute right-2 top-1/2 -translate-y-1/2">
               <Button type="submit" size="lg" className="rounded-full">
-                Search
+                Ara
               </Button>
             </div>
           </div>

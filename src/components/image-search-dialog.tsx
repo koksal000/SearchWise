@@ -54,9 +54,9 @@ export function ImageSearchDialog({ isOpen, onOpenChange, onSearch }: ImageSearc
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Visual Search</DialogTitle>
+          <DialogTitle>Görsel Arama</DialogTitle>
           <DialogDescription>
-            Upload or drop an image to get AI-powered search terms.
+            Yapay zeka destekli arama terimleri almak için bir resim yükleyin veya sürükleyin.
           </DialogDescription>
         </DialogHeader>
         <div
@@ -85,18 +85,18 @@ export function ImageSearchDialog({ isOpen, onOpenChange, onSearch }: ImageSearc
             <div className="flex flex-col items-center gap-2 text-muted-foreground">
               <UploadCloud className="h-10 w-10" />
               <p>
-                {isDragActive ? 'Drop the image here ...' : "Drag 'n' drop an image here, or click to select"}
+                {isDragActive ? 'Resmi buraya bırakın...' : "Bir resmi buraya sürükleyip bırakın veya seçmek için tıklayın"}
               </p>
-              <p className="text-xs">PNG, JPG, GIF up to 10MB</p>
+              <p className="text-xs">PNG, JPG, GIF - 10MB'a kadar</p>
             </div>
           )}
         </div>
         <DialogFooter className="mt-4">
           <Button variant="outline" onClick={handleClose}>
-            Cancel
+            İptal
           </Button>
           <Button onClick={handleSearch} disabled={!file}>
-            Analyze and Search
+            Analiz Et ve Ara
           </Button>
         </DialogFooter>
       </DialogContent>

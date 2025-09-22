@@ -50,10 +50,10 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
     } catch (error) {
        toast({
         variant: "destructive",
-        title: "Failed to load page",
-        description: error instanceof Error ? error.message : 'An unknown error occurred.',
+        title: "Sayfa yüklenemedi",
+        description: error instanceof Error ? error.message : 'Bilinmeyen bir hata oluştu.',
       });
-      onClose(); // Close viewer on error
+      onClose(); // Hata durumunda görüntüleyiciyi kapat
     }
   };
 
@@ -95,16 +95,16 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
               {viewMode === 'proxied' ? (
                   <Popover>
                     <PopoverTrigger asChild>
-                      <button className="flex items-center" aria-label="Simplified mode info">
+                      <button className="flex items-center" aria-label="Basitleştirilmiş mod bilgisi">
                         <ShieldAlert className="h-4 w-4 text-amber-500" />
                       </button>
                     </PopoverTrigger>
                     <PopoverContent className="w-80">
                       <div className="grid gap-4">
                         <div className="space-y-2">
-                          <h4 className="font-medium leading-none">Simplified View</h4>
+                          <h4 className="font-medium leading-none">Basitleştirilmiş Görünüm</h4>
                           <p className="text-sm text-muted-foreground">
-                            This site restricts being embedded, so it's shown in a simplified mode. Some features like logins or complex scripts may not work.
+                            Bu site yerleştirilmeyi kısıtladığı için basitleştirilmiş modda gösteriliyor. Giriş yapma veya karmaşık betikler gibi bazı özellikler çalışmayabilir.
                           </p>
                         </div>
                       </div>
@@ -120,7 +120,7 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
                 className="w-full rounded-full bg-muted pl-9 pr-4 h-9"
             />
         </form>
-        <Button variant="ghost" size="icon" onClick={() => window.open(tab.url, '_blank')} title="Open in new tab">
+        <Button variant="ghost" size="icon" onClick={() => window.open(tab.url, '_blank')} title="Yeni sekmede aç">
           <ExternalLink className="h-5 w-5" />
         </Button>
       </header>

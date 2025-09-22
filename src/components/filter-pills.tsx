@@ -11,10 +11,10 @@ type FilterPillsProps = {
 };
 
 const filters: { id: SearchType; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { id: 'all', label: 'All', icon: Globe },
-  { id: 'images', label: 'Images', icon: ImageIcon },
-  { id: 'videos', label: 'Videos', icon: Video },
-  { id: 'news', label: 'News', icon: Newspaper },
+  { id: 'all', label: 'Tümü', icon: Globe },
+  { id: 'images', label: 'Görseller', icon: ImageIcon },
+  { id: 'videos', label: 'Videolar', icon: Video },
+  { id: 'news', label: 'Haberler', icon: Newspaper },
 ];
 
 export function FilterPills({ activeFilter, onFilterChange }: FilterPillsProps) {

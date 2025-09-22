@@ -29,7 +29,7 @@ export function SearchResults({
     return (
       <div className="flex flex-col items-center justify-center gap-4 p-8">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-muted-foreground">Searching for "{query}"...</p>
+        <p className="text-muted-foreground">"{query}" için aranıyor...</p>
       </div>
     );
   }
@@ -37,8 +37,8 @@ export function SearchResults({
   if (!results || results.length === 0) {
     return (
       <div className="p-8 text-center">
-        <h3 className="text-xl font-semibold">No results found for "{query}"</h3>
-        <p className="text-muted-foreground mt-2">Try a different search term or check your spelling.</p>
+        <h3 className="text-xl font-semibold">"{query}" için sonuç bulunamadı</h3>
+        <p className="text-muted-foreground mt-2">Farklı bir arama terimi deneyin veya yazımınızı kontrol edin.</p>
       </div>
     );
   }

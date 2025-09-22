@@ -42,7 +42,7 @@ export function Header({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
-            placeholder={isListening ? "Listening..." : "Search..."}
+            placeholder={isListening ? "Dinleniyor..." : "Ara..."}
             className="w-full rounded-full bg-card pl-10 pr-28 h-10"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -72,11 +72,11 @@ export function Header({
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="icon" onClick={onHistoryClick}>
           <History className="h-5 w-5" />
-          <span className="sr-only">History</span>
+          <span className="sr-only">Geçmiş</span>
         </Button>
         <Button variant="ghost" size="icon" onClick={onTabsClick} className="relative">
           <PanelsLeftRight className="h-5 w-5" />
-          <span className="sr-only">Tabs</span>
+          <span className="sr-only">Sekmeler</span>
           {tabs.length > 0 && (
             <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
               {tabs.length}
@@ -85,7 +85,7 @@ export function Header({
         </Button>
         <Button variant="ghost" size="icon" onClick={onSettingsClick}>
           <Settings className="h-5 w-5" />
-          <span className="sr-only">Settings</span>
+          <span className="sr-only">Ayarlar</span>
         </Button>
       </div>
     </header>

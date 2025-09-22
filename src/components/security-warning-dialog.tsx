@@ -26,15 +26,15 @@ export function SecurityWarningDialog({ isOpen, onClose, onConfirm }: SecurityWa
           <div className="flex justify-center mb-4">
             <AlertTriangle className="h-12 w-12 text-destructive" />
           </div>
-          <AlertDialogTitle className="text-center">Security Warning</AlertDialogTitle>
+          <AlertDialogTitle className="text-center">Güvenlik Uyarısı</AlertDialogTitle>
           <AlertDialogDescription className="text-center">
-            The link you are trying to open uses an insecure connection (HTTP). Your connection to this site will not be private.
+            Açmaya çalıştığınız bağlantı güvenli olmayan bir bağlantı (HTTP) kullanıyor. Bu siteyle olan bağlantınız özel olmayacak.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="sm:justify-center">
-          <AlertDialogCancel onClick={onClose}>Go Back</AlertDialogCancel>
+          <AlertDialogCancel onClick={onClose}>Geri Dön</AlertDialogCancel>
           <AlertDialogAction onClick={onConfirm}>
-            Proceed Anyway
+            Yine de Devam Et
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

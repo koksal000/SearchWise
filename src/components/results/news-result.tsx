@@ -16,16 +16,16 @@ function getTimeAgo(dateString?: string): string {
   const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
   
   let interval = seconds / 31536000;
-  if (interval > 1) return Math.floor(interval) + " years ago";
+  if (interval > 1) return Math.floor(interval) + " yıl önce";
   interval = seconds / 2592000;
-  if (interval > 1) return Math.floor(interval) + " months ago";
+  if (interval > 1) return Math.floor(interval) + " ay önce";
   interval = seconds / 86400;
-  if (interval > 1) return Math.floor(interval) + " days ago";
+  if (interval > 1) return Math.floor(interval) + " gün önce";
   interval = seconds / 3600;
-  if (interval > 1) return Math.floor(interval) + " hours ago";
+  if (interval > 1) return Math.floor(interval) + " saat önce";
   interval = seconds / 60;
-  if (interval > 1) return Math.floor(interval) + " minutes ago";
-  return Math.floor(seconds) + " seconds ago";
+  if (interval > 1) return Math.floor(interval) + " dakika önce";
+  return Math.floor(seconds) + " saniye önce";
 }
 
 export function NewsResult({ item, onResultClick }: NewsResultProps) {

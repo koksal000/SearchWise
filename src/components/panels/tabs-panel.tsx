@@ -51,9 +51,9 @@ export function TabsPanel({ isOpen, onOpenChange, onTabItemClick }: TabsPanelPro
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
       <SheetContent className="flex flex-col">
         <SheetHeader>
-          <SheetTitle>Open Tabs</SheetTitle>
+          <SheetTitle>Açık Sekmeler</SheetTitle>
           <SheetDescription>
-            Manage your open tabs.
+            Açık sekmelerinizi yönetin.
           </SheetDescription>
         </SheetHeader>
         <div className="flex-grow overflow-hidden">
@@ -93,7 +93,7 @@ export function TabsPanel({ isOpen, onOpenChange, onTabItemClick }: TabsPanelPro
                 </div>
               ) : (
                 <div className="flex h-full items-center justify-center text-muted-foreground">
-                  <p>No open tabs.</p>
+                  <p>Açık sekme yok.</p>
                 </div>
               )}
             </div>
@@ -105,19 +105,19 @@ export function TabsPanel({ isOpen, onOpenChange, onTabItemClick }: TabsPanelPro
                 <AlertDialogTrigger asChild>
                     <Button variant="destructive" className="w-full">
                         <Trash2 className="mr-2 h-4 w-4" />
-                        Close All Tabs
+                        Tüm Sekmeleri Kapat
                     </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This will close all open tabs. This action cannot be undone.
+                        Bu işlem tüm açık sekmeleri kapatacaktır. Bu eylem geri alınamaz.
                     </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={clearAllTabs}>Continue</AlertDialogAction>
+                    <AlertDialogCancel>İptal</AlertDialogCancel>
+                    <AlertDialogAction onClick={clearAllTabs}>Devam Et</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
