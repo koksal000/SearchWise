@@ -15,6 +15,8 @@ type WebViewerProps = {
   onNavigate: (query: string) => void;
 };
 
+const LOAD_TIMEOUT = 5000; // 5 seconds
+
 export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -23,8 +25,12 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
   const [useSrcDoc, setUseSrcDoc] = useState(false);
   const [srcDocContent, setSrcDocContent] = useState('');
   const { toast } = useToast();
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const loadContentAsProxy = async (url: string) => {
+    // Ensure we don't run this multiple times
+    if (useSrcDoc) return;
+    
     setIsLoading(true);
     const result = await fetchPageContent(url);
     if ('content' in result) {
@@ -44,34 +50,39 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
     setIsLoading(false);
   }
 
+  const clearLoadTimeout = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  };
+
   useEffect(() => {
     if (tab) {
       setIsLoading(true);
       setDisplayUrl(tab.url);
       setViewKey(Date.now());
-      setUseSrcDoc(false); // Reset to direct loading first
+      setUseSrcDoc(false);
       setSrcDocContent('');
+      
+      // Set a timeout to assume the site is blocked if it doesn't load
+      clearLoadTimeout();
+      timeoutRef.current = setTimeout(() => {
+        if (isLoading && tab.url) { // If still loading after timeout
+          loadContentAsProxy(tab.url);
+        }
+      }, LOAD_TIMEOUT);
     }
+
+    return () => {
+      clearLoadTimeout();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
   
   const handleLoad = () => {
     setIsLoading(false);
-    // A common way to detect if an iframe was blocked is to check its content.
-    // If the origin is null or 'about:blank' after loading, it was likely blocked.
-    try {
-        if (iframeRef.current && 
-            (!iframeRef.current.contentWindow?.location.href || 
-             iframeRef.current.contentWindow.location.href === 'about:blank')) {
-            if (tab && !useSrcDoc) { // Prevent loop
-                loadContentAsProxy(tab.url);
-            }
-        }
-    } catch (e) {
-        // CORS error means we can't access location, which is a strong indicator of blocking.
-        if (tab && !useSrcDoc) { // Prevent loop
-            loadContentAsProxy(tab.url);
-        }
-    }
+    clearLoadTimeout();
   };
   
   const reload = () => {
@@ -81,6 +92,14 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
       setViewKey(Date.now());
       setUseSrcDoc(false);
       setSrcDocContent('');
+
+      // Restart the timeout logic on reload
+      clearLoadTimeout();
+      timeoutRef.current = setTimeout(() => {
+        if (isLoading && tab.url) {
+          loadContentAsProxy(tab.url);
+        }
+      }, LOAD_TIMEOUT);
     }
   };
   
@@ -103,9 +122,9 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
           </Button>
         </div>
         <form onSubmit={handleSubmit} className="flex-1 relative">
-            <div className='absolute left-3 top-1/2 -translate-y-1/2'>
+            <div className='absolute left-3 top-1/2 -translate-y-1/2' title={useSrcDoc ? 'Viewing in simplified mode' : 'Secure'}>
               {useSrcDoc ? (
-                  <ShieldAlert className="h-4 w-4 text-amber-500" title="Viewing via basic fallback"/>
+                  <ShieldAlert className="h-4 w-4 text-amber-500" />
               ) : (
                   <Search className="h-4 w-4 text-muted-foreground" />
               )}
@@ -116,7 +135,7 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
                 className="w-full rounded-full bg-muted pl-9 pr-4 h-9"
             />
         </form>
-        <Button variant="ghost" size="icon" onClick={() => window.open(tab.url, '_blank')}>
+        <Button variant="ghost" size="icon" onClick={() => window.open(tab.url, '_blank')} title="Open in new tab">
           <ExternalLink className="h-5 w-5" />
         </Button>
       </header>
@@ -132,7 +151,7 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
           src={!useSrcDoc ? tab.url : undefined}
           srcDoc={useSrcDoc ? srcDocContent : undefined}
           onLoad={handleLoad}
-          onError={() => setIsLoading(false)} // Stop loading indicator on error too
+          onError={() => loadContentAsProxy(tab.url)} // Try proxy on direct error
           title={tab.title}
           className="h-full w-full border-0"
           sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-presentation"
