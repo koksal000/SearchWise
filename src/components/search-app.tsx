@@ -93,14 +93,17 @@ export function SearchApp() {
             description: response.error,
         });
         setResults([]);
-      } else if (response) {
-        let items = response.items || [];
-        setResults(items);
-        if (response.searchInformation) {
-          const time = response.searchInformation.formattedSearchTime;
-          const total = response.searchInformation.formattedTotalResults;
-          setSearchInfo(time && total ? `Yaklaşık ${total} sonuç (${time} saniye)` : '');
-        }
+        setIsLoading(false);
+        return;
+      }
+      
+      let items = response.items || [];
+
+      setResults(items);
+      if (response.searchInformation) {
+        const time = response.searchInformation.formattedSearchTime;
+        const total = response.searchInformation.formattedTotalResults;
+        setSearchInfo(time && total ? `Yaklaşık ${total} sonuç (${time} saniye)` : '');
       }
     } catch (error) {
       console.error('Arama hatası:', error);
