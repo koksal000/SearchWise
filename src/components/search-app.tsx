@@ -63,7 +63,7 @@ export function SearchApp() {
     try {
       let response;
       const safe = settings.safeSearch ? 'active' : 'off';
-      const shouldFilter = settings.inAppWebView && settings.filterInAppFriendly;
+      const shouldFilter = settings.inAppWebView;
       
       switch (filter) {
         case 'images':
@@ -98,8 +98,8 @@ export function SearchApp() {
       let items = response.items || [];
 
       if (shouldFilter && items.length > 0) {
-        toast({ title: 'Filtering Results', description: 'Finding sites that work best in the app...' });
-        items = await filterInAppFriendlyResults(items);
+        // We are no longer filtering here, but keeping the block in case we add it back
+        // For now, it does nothing.
       }
 
       setResults(items);
@@ -117,7 +117,7 @@ export function SearchApp() {
     } finally {
       setIsLoading(false);
     }
-  }, [settings.saveHistory, settings.safeSearch, settings.inAppWebView, settings.filterInAppFriendly, addToHistory, toast]);
+  }, [settings.saveHistory, settings.safeSearch, settings.inAppWebView, addToHistory, toast]);
 
 
   useEffect(() => {

@@ -49,7 +49,6 @@ export type AppSettings = {
   safeSearch: boolean;
   inAppWebView: boolean;
   saveHistory: boolean;
-  filterInAppFriendly: boolean;
 };
 
 export type HistoryItem = {

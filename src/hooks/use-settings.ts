@@ -9,7 +9,6 @@ const defaultSettings: AppSettings = {
   safeSearch: true,
   inAppWebView: true,
   saveHistory: true,
-  filterInAppFriendly: false,
 };
 
 type SettingsContextType = {
@@ -18,7 +17,6 @@ type SettingsContextType = {
   setSafeSearch: (value: boolean) => void;
   setInAppWebView: (value: boolean) => void;
   setSaveHistory: (value: boolean) => void;
-  setFilterInAppFriendly: (value: boolean) => void;
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -48,13 +46,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const setSaveHistory = useCallback((value: boolean) => {
     setSettings(prev => ({ ...prev, saveHistory: value }));
   }, [setSettings]);
-  
-  const setFilterInAppFriendly = useCallback((value: boolean) => {
-    setSettings(prev => ({ ...prev, filterInAppFriendly: value }));
-  }, [setSettings]);
 
   return (
-    <SettingsContext.Provider value={{ settings, toggleTheme, setSafeSearch, setInAppWebView, setSaveHistory, setFilterInAppFriendly }}>
+    <SettingsContext.Provider value={{ settings, toggleTheme, setSafeSearch, setInAppWebView, setSaveHistory }}>
       {children}
     </SettingsContext.Provider>
   );

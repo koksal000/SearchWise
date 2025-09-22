@@ -20,6 +20,9 @@ async function fetchFromApi(params: URLSearchParams): Promise<any> {
     if (!response.ok) {
       const errorData = await response.json();
       console.error('Google API Error:', errorData.error);
+      if (errorData.error.code === 429) {
+        return { error: 'API_QUOTA_EXCEEDED' };
+      }
       throw new Error(errorData.error?.message || 'An error occurred with the search API.');
     }
     return await response.json();

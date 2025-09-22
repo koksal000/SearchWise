@@ -17,7 +17,7 @@ type SettingsPanelProps = {
 };
 
 export function SettingsPanel({ isOpen, onOpenChange }: SettingsPanelProps) {
-  const { settings, toggleTheme, setSafeSearch, setInAppWebView, setSaveHistory, setFilterInAppFriendly } = useSettings();
+  const { settings, toggleTheme, setSafeSearch, setInAppWebView, setSaveHistory } = useSettings();
 
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
@@ -73,18 +73,6 @@ export function SettingsPanel({ isOpen, onOpenChange }: SettingsPanelProps) {
             <p className="text-sm text-muted-foreground">
                 When enabled, links will open inside the app. Some sites may not work correctly.
             </p>
-            {settings.inAppWebView && (
-                 <div className="flex items-center justify-between pt-2">
-                    <Label htmlFor="filter-in-app" className="text-base pr-4">
-                        Filter for in-app view
-                    </Label>
-                    <Switch
-                    id="filter-in-app"
-                    checked={settings.filterInAppFriendly}
-                    onCheckedChange={setFilterInAppFriendly}
-                    />
-                </div>
-            )}
           </div>
         </div>
       </SheetContent>
