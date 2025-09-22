@@ -17,7 +17,7 @@ type SearchParams = {
 async function fetchPageContentFromProxy(url: string): Promise<{ content: string } | { error: string }> {
     try {
         const response = await fetch(url, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 13; SM-S901B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36' },
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36' },
         });
 
         if (!response.ok) {
@@ -47,8 +47,10 @@ async function fetchWithScraping(query: string, searchType: SearchType, safe: 'a
     switch (searchType) {
         case 'images':
             if (safe === 'off') {
+                // unsafe image search URL
                 url = `https://www.google.com/search?client=ms-android-samsung-ss&sca_esv=9594ada01a48a169&sxsrf=AE3TifPhslWpMCq4bGnc8wgiE6JizS655w%3A1758579204479&udm=2&fbs=AIIjpHymm3QGL3QwQaAHNV0eUTUFlr-h8bP2w7L3Ug7M1_MWTTbggidNMU5Ghv1pIb-gjcpEXCHwdKRke2xSb93dPJRfIMxISEuSZrpoHQak0tOqS6_7Dpfz1ughrsCSFivbKFmJWQ3xIdZSd5ypg5bFlPXd5EzApyYfuXJc4USZni3ecnjlsd48EVh9xg7opAvV9t8CUkdqX-phQ1xrDchIUmPSZ5bPufJOUQrxSD_WQmvFrXxjeDL-d_aUtgR0OhBu7SvD-2jp&q=${encodedQuery}&sa=X&ved=2ahUKEwi9yvmKsu2PAxUXbvEDHaZ1PAsQm-ELegQIBhAE&biw=384&bih=731&dpr=2.81&no_sw_cr=1&zx=1758579215282&sssc=1&vet=12ahUKEwi9yvmKsu2PAxUXbvEDHaZ1PAsQm-ELegQIBhAE..i&start=${start}`;
             } else {
+                // safe image search URL
                 url = `https://www.google.com/search?client=ms-android-samsung-ss&sca_esv=9594ada01a48a169&udm=2&fbs=AIIjpHyjDOZ_Qm4jPhsJYko6FQq1c7ccSu0qUPwXCIshHgPoxFN3uWGxLcPSMjM16T2jJbKZ0cAAH2ogSsoRV7thp3auwRYmL1XUIz6vRS48yj3yiVZTkn71yziXFvMmgaN49QDem6W4ASXQUK42GKt9UviRbjAn2I4ePQ3EE11FyBidDzfjOygca4qVxjaShj--w9LuRE4m3KH_lEHzIXAV46kbAlgJLwyi3WRmdd_e9H_mpVKyl4wmqJE0HZHLlEgfjL-Dw2ADORsSJ3Ku9-m8gUix5PcQNA&q=${encodedQuery}&sa=X&ved=2ahUKEwj-3IjcsO2PAxUia_EDHZNSFCIQtKgLegQIDxAB&biw=384&bih=731&dpr=2.81&start=${start}`;
             }
             break;
@@ -76,8 +78,8 @@ async function fetchWithScraping(query: string, searchType: SearchType, safe: 'a
         const scrapedResults = extractScrapedResults(htmlContent, searchType);
 
         if (!scrapedResults || scrapedResults.length === 0) {
-            const errorMessage = "Scraping fallback couldn't find any results. This might be due to changes in Google's page structure.";
-            console.warn(errorMessage, "Query:", query);
+            const errorMessage = "Scraping fallback couldn't find any results. This might be due to changes in Google's page structure or a bot block.";
+            console.warn(errorMessage, "Query:", query, "URL:", url);
             return { error: errorMessage };
         }
 
@@ -186,7 +188,7 @@ export async function searchNews({ query, page, safe }: SearchParams): Promise<S
 export async function searchVideos({ query, page, safe }: SearchParams): Promise<{ items: VideoSearchResultItem[] } & Omit<SearchResults, 'items'> | { error:string }> {
   // Video scraping is more reliable than the standard API for getting direct video links.
   // So we prioritize scraping for videos.
-  const searchResult = await fetchWithScraping(`${query} video`, 'videos', safe, page);
+  const searchResult = await fetchWithScraping(`${query}`, 'videos', safe, page);
   
   if ('error' in searchResult) {
     return searchResult;
