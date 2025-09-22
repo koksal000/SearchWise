@@ -52,6 +52,10 @@ const canBeIframedFlow = ai.defineFlow(
           return { canBeIframed: false };
         }
         if (contentSecurityPolicy.includes("frame-ancestors 'self'")) {
+          // If it's 'self', we can only iframe it if the origin is the same,
+          // which it won't be for a direct URL. We must use a proxy.
+          // Note: This logic is simplified. A full implementation would compare origins.
+          // For now, we'll treat 'self' as not iframable for simplicity.
           return { canBeIframed: false };
         }
       }
@@ -59,7 +63,8 @@ const canBeIframedFlow = ai.defineFlow(
       return { canBeIframed: true };
     } catch (error) {
       console.error(`Error checking iframability for ${url}:`, error);
-      // On network error or other issues, assume it can't be iframed safely.
+      // On network error or other issues, assume it can't be iframed directly.
+      // A proxy might still work.
       return { canBeIframed: false };
     }
   }
