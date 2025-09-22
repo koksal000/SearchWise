@@ -1,6 +1,6 @@
 'use client';
 
-import { Search, History, Settings, PanelsLeftRight, X, Mic, Camera, MoreVertical, ChevronsUpDown } from 'lucide-react';
+import { Search, History, Settings, PanelsLeftRight, X, Mic, Camera, ChevronsUpDown } from 'lucide-react';
 import { Logo } from './logo';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
@@ -73,7 +73,7 @@ export function Header({
             )}
           </div>
         </form>
-        <Collapsible open={isActionsOpen} onOpenChange={setActionsOpen}>
+        <Collapsible open={isActionsOpen} onOpenChange={setActionsOpen} className="hidden sm:block">
             <CollapsibleTrigger asChild>
                 <Button variant="ghost" size="icon">
                     <ChevronsUpDown className="h-5 w-5" />
@@ -83,15 +83,15 @@ export function Header({
         </Collapsible>
       </div>
 
-      <CollapsibleContent asChild>
+      <CollapsibleContent asChild className="hidden sm:block">
         <div className="flex items-center justify-center gap-2 py-2">
             <Button variant="ghost" size="sm" onClick={onHistoryClick}>
                 <History className="h-5 w-5" />
-                <span className="ml-2">Geçmiş</span>
+                <span className="ml-2 hidden md:inline">Geçmiş</span>
             </Button>
             <Button variant="ghost" size="sm" onClick={onTabsClick} className="relative">
                 <PanelsLeftRight className="h-5 w-5" />
-                <span className="ml-2">Sekmeler</span>
+                <span className="ml-2 hidden md:inline">Sekmeler</span>
                 {tabs.length > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
                     {tabs.length}
@@ -100,10 +100,29 @@ export function Header({
             </Button>
             <Button variant="ghost" size="sm" onClick={onSettingsClick}>
                 <Settings className="h-5 w-5" />
-                <span className="ml-2">Ayarlar</span>
+                <span className="ml-2 hidden md:inline">Ayarlar</span>
             </Button>
         </div>
       </CollapsibleContent>
+      
+      {/* Mobile only buttons */}
+      <div className="sm:hidden flex items-center justify-center gap-2 py-2">
+        <Button variant="ghost" size="sm" onClick={onHistoryClick}>
+            <History className="h-5 w-5" />
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onTabsClick} className="relative">
+            <PanelsLeftRight className="h-5 w-5" />
+            {tabs.length > 0 && (
+            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                {tabs.length}
+            </span>
+            )}
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onSettingsClick}>
+            <Settings className="h-5 w-5" />
+        </Button>
+      </div>
+
     </header>
   );
 }
