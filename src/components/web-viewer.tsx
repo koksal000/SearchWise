@@ -7,7 +7,6 @@ import { Loader2 } from 'lucide-react';
 import { TabItem } from '@/lib/types';
 import { Input } from './ui/input';
 import { fetchPageContent } from '@/app/actions';
-import { canBeIframed } from '@/ai/flows/can-be-iframed';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Progress } from "@/components/ui/progress";
@@ -91,41 +90,41 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
     }
 
     try {
-      const { canBeIframed: isIframable } = await canBeIframed({ url });
-
-      if (isIframable) {
-        setViewMode('direct');
-      } else {
         const result = await fetchPageContent(url);
-        if ('content' in result) {
-          const baseTag = `<base href="${new URL(url).origin}">`;
-          const navigationInterceptorScript = `
-            <script>
-              document.addEventListener('click', function(e) {
-                let target = e.target;
-                while (target && target.tagName !== 'A') {
-                  target = target.parentElement;
-                }
-                if (target && target.href) {
-                  e.preventDefault();
-                  if (target.protocol === 'http:' || target.protocol === 'https:') {
-                    window.parent.postMessage({ type: 'navigate', url: target.href }, '*');
-                  }
-                }
-              }, true);
-            <\/script>
-          `;
-          setSrcDocContent(baseTag + navigationInterceptorScript + result.content);
-          setViewMode('proxied');
-        } else {
-          throw new Error(result.error);
+        
+        if ('error' in result) {
+            throw new Error(result.error);
         }
-      }
+
+        if (result.content) { // Proxied mode
+            const baseTag = `<base href="${new URL(url).origin}">`;
+            const navigationInterceptorScript = `
+                <script>
+                  document.addEventListener('click', function(e) {
+                    let target = e.target;
+                    while (target && target.tagName !== 'A') {
+                      target = target.parentElement;
+                    }
+                    if (target && target.href) {
+                      e.preventDefault();
+                      if (target.protocol === 'http:' || target.protocol === 'https:') {
+                        window.parent.postMessage({ type: 'navigate', url: target.href }, '*');
+                      }
+                    }
+                  }, true);
+                <\/script>
+              `;
+            setSrcDocContent(baseTag + navigationInterceptorScript + result.content);
+            setViewMode('proxied');
+        } else { // Direct mode
+            setViewMode('direct');
+        }
+
     } catch (error) {
        toast({
         variant: "destructive",
-        title: "Sayfa yüklenemedi",
-        description: error instanceof Error ? error.message : 'Bilinmeyen bir hata oluştu.',
+        title: "Page failed to load",
+        description: error instanceof Error ? error.message : 'An unknown error occurred.',
       });
       if (canGoBack) {
           setHistoryIndex(prev => prev - 1);
@@ -133,9 +132,12 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
           onClose();
       }
     } finally {
-      finishLoading();
+      // finishLoading is called by iframe onLoad or here for proxied content
+      if (viewMode !== 'direct') {
+          finishLoading();
+      }
     }
-  }, [toast, onClose, historyIndex, canGoBack]);
+  }, [toast, onClose, historyIndex, canGoBack, viewMode]);
 
   useEffect(() => {
     if (tab && tab.url !== currentUrl) {
@@ -204,16 +206,16 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
                     {viewMode === 'proxied' ? (
                         <Popover>
                         <PopoverTrigger asChild>
-                            <button className="flex items-center" aria-label="Basitleştirilmiş mod bilgisi">
+                            <button className="flex items-center" aria-label="Simplified mode info">
                             <ShieldAlert className="h-4 w-4 text-amber-500" />
                             </button>
                         </PopoverTrigger>
                         <PopoverContent className="w-80">
                             <div className="grid gap-4">
                             <div className="space-y-2">
-                                <h4 className="font-medium leading-none">Basitleştirilmiş Görünüm</h4>
+                                <h4 className="font-medium leading-none">Simplified View</h4>
                                 <p className="text-sm text-muted-foreground">
-                                Bu site yerleştirilmeyi kısıtladığı için basitleştirilmiş modda gösteriliyor. Giriş yapma veya karmaşık betikler gibi bazı özellikler çalışmayabilir.
+                                This site is shown in simplified mode because it restricts embedding. Some features like logins or complex scripts may not work.
                                 </p>
                             </div>
                             </div>
@@ -245,7 +247,7 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
                     </Button>
                 </div>
                 
-                <Button variant="ghost" size="icon" className='h-8 w-8' onClick={() => window.open(currentUrl, '_blank')} title="Yeni sekmede aç">
+                <Button variant="ghost" size="icon" className='h-8 w-8' onClick={() => window.open(currentUrl, '_blank')} title="Open in new tab">
                 <ExternalLink className="h-5 w-5" />
                 </Button>
             </div>
@@ -260,27 +262,29 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
           )}
           <iframe
             key={viewKey}
-            onLoad={finishLoading}
+            onLoad={() => {
+                if (viewMode === 'direct') finishLoading();
+            }}
             src={viewMode === 'direct' ? currentUrl : undefined}
             srcDoc={viewMode === 'proxied' ? srcDocContent : undefined}
             title={tab.title}
             className="h-full w-full border-0"
             sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-presentation"
-            style={{ visibility: isLoading && !srcDocContent ? 'hidden' : 'visible' }}
+            style={{ visibility: (isLoading && viewMode !== 'proxied') ? 'hidden' : 'visible' }}
           />
         </div>
       </div>
       <AlertDialog open={isCloseConfirmationOpen} onOpenChange={setCloseConfirmationOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Onay</AlertDialogTitle>
+            <AlertDialogTitle>Confirm</AlertDialogTitle>
             <AlertDialogDescription>
-              Bu sekmeden çıkmak istediğinize emin misiniz? Yaptığınız değişiklikler kaybolabilir.
+              Are you sure you want to exit this tab? Your changes may be lost.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>İptal</AlertDialogCancel>
-            <AlertDialogAction onClick={onClose}>Çık</AlertDialogAction>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={onClose}>Exit</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

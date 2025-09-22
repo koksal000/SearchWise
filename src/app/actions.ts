@@ -1,8 +1,8 @@
 'use server';
 
-import { extractVideoData } from '@/ai/flows/extract-video-data-from-search-results';
-import { scrapeGoogleSearchResults } from '@/ai/flows/scrape-google-search-results';
-import { SearchResults, ImageSearchResults, VideoSearchResultItem, SearchResultItem, SearchType, ImageSearchResultItemImage, ScrapedResult } from '@/lib/types';
+import { canBeIframed } from '@/ai/flows/can-be-iframed';
+import { extractScrapedResults, extractVideoData } from '@/lib/scraping-service';
+import { SearchResults, ImageSearchResults, VideoSearchResultItem, SearchResultItem, SearchType, ImageSearchResultItemImage } from '@/lib/types';
 
 const API_KEY = process.env.GOOGLE_API_KEY;
 const CX_ID = process.env.GOOGLE_CX_ID;
@@ -15,9 +15,11 @@ type SearchParams = {
 }
 
 async function fetchWithScraping(query: string, searchType: SearchType): Promise<SearchResults | ImageSearchResults | { error: string }> {
-    console.log(`API quota likely exceeded. Falling back to scraping for ${searchType} search.`);
+    console.log(`API quota likely exceeded or keys not provided. Falling back to scraping for ${searchType} search.`);
     let url = '';
     const encodedQuery = encodeURIComponent(query);
+    
+    // Construct Google search URL based on search type
     switch (searchType) {
         case 'images':
             url = `https://www.google.com/search?q=${encodedQuery}&udm=2`;
@@ -26,6 +28,8 @@ async function fetchWithScraping(query: string, searchType: SearchType): Promise
             url = `https://www.google.com/search?q=${encodedQuery}&tbm=nws`;
             break;
         case 'videos':
+             url = `https://www.google.com/search?q=${encodedQuery}&tbm=vid`;
+            break;
         case 'all':
         default:
             url = `https://www.google.com/search?q=${encodedQuery}`;
@@ -33,24 +37,25 @@ async function fetchWithScraping(query: string, searchType: SearchType): Promise
     }
 
     try {
-        const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }});
+        const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' }});
         if (!response.ok) {
             throw new Error(`Failed to fetch Google search page. Status: ${response.status}`);
         }
         const htmlContent = await response.text();
         
-        const scrapedResults = await scrapeGoogleSearchResults({ htmlContent, searchType, query });
-        if (!scrapedResults.results || scrapedResults.results.length === 0) {
+        const scrapedResults = extractScrapedResults(htmlContent, searchType);
+
+        if (!scrapedResults || scrapedResults.length === 0) {
             return { searchInformation: { formattedTotalResults: '0', formattedSearchTime: '0.00' }, items: [] };
         }
 
         const searchInformation = {
-             formattedTotalResults: `${scrapedResults.results.length}`,
+             formattedTotalResults: `${scrapedResults.length}`,
              formattedSearchTime: `0.00`,
         }
 
         if (searchType === 'images') {
-             const imageItems: ImageSearchResultItem[] = scrapedResults.results.map((item: ScrapedResult) => ({
+             const imageItems: ImageSearchResultItem[] = scrapedResults.map(item => ({
                 title: item.title,
                 link: item.link,
                 displayLink: new URL(item.link).hostname,
@@ -64,7 +69,7 @@ async function fetchWithScraping(query: string, searchType: SearchType): Promise
              return { searchInformation, items: imageItems };
         }
 
-        const items: SearchResultItem[] = scrapedResults.results.map((item: ScrapedResult) => ({
+        const items: SearchResultItem[] = scrapedResults.map(item => ({
             ...item,
             displayLink: new URL(item.link).hostname,
             pagemap: item.imageUrl ? { cse_thumbnail: [{ src: item.imageUrl }] } : {},
@@ -74,8 +79,8 @@ async function fetchWithScraping(query: string, searchType: SearchType): Promise
 
     } catch (scrapingError) {
         console.error('Scraping fallback failed:', scrapingError);
-        const errorMessage = scrapingError instanceof Error ? scrapingError.message : 'Bilinmeyen bir kazıma hatası oluştu.';
-        return { error: `Arama API kotası aşıldı ve yedek arama mekanizması başarısız oldu: ${errorMessage}` };
+        const errorMessage = scrapingError instanceof Error ? scrapingError.message : 'An unknown scraping error occurred.';
+        return { error: `Search API fallback failed: ${errorMessage}` };
     }
 }
 
@@ -89,17 +94,16 @@ async function fetchFromApi(params: URLSearchParams, query: string, searchType: 
     const response = await fetch(`${API_URL}?${params.toString()}`);
     if (!response.ok) {
       if (response.status === 429) {
-        // Quota exceeded, fall back to scraping
         return fetchWithScraping(query, searchType);
       }
       const errorData = await response.json();
-      console.error('Google API Error:', errorData.error);
-      return { error: errorData.error?.message || 'Arama API\'si ile bir hata oluştu.' };
+      const message = errorData.error?.message || 'An error occurred with the Search API.';
+      console.error('Google API Error:', message);
+      return { error: message };
     }
     return await response.json();
   } catch (error) {
     console.error('Fetch API Error:', error);
-    // If fetch itself fails (e.g. network error) or API returns non-429 error, try scraping
     return fetchWithScraping(query, searchType);
   }
 }
@@ -156,17 +160,12 @@ export async function searchVideos({ query, page, safe }: SearchParams): Promise
 
   const videoDataPromises = searchResult.items.map(async (item: SearchResultItem): Promise<VideoSearchResultItem> => {
     try {
-      const response = await fetch(item.link, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }});
+      const response = await fetch(item.link, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' }});
       if (!response.ok) {
-        return item; // Return original item if fetch fails
+        return item;
       }
       const htmlContent = await response.text();
-
-      // Use the GenAI flow to extract video data
-      const extractedData = await extractVideoData({
-        htmlContent,
-        url: item.link,
-      });
+      const extractedData = extractVideoData(htmlContent);
       
       return {
         ...item,
@@ -175,7 +174,7 @@ export async function searchVideos({ query, page, safe }: SearchParams): Promise
       };
     } catch (e) {
       console.error(`Failed to process URL ${item.link}:`, e);
-      return item; // Return original item on error
+      return item;
     }
   });
 
@@ -186,13 +185,18 @@ export async function searchVideos({ query, page, safe }: SearchParams): Promise
 
 export async function fetchPageContent(url: string): Promise<{content: string} | {error: string}> {
     try {
+        const { canBeIframed: isIframable } = await canBeIframed({ url });
+        if (isIframable) {
+            return { content: '' }; // Let the iframe handle it directly
+        }
+
         const response = await fetch(url, {
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
             }
         });
         if (!response.ok) {
-            return { error: `Sayfa alınamadı. Durum: ${response.status}` };
+            return { error: `Failed to fetch page. Status: ${response.status}` };
         }
         const content = await response.text();
         return { content };
@@ -201,6 +205,6 @@ export async function fetchPageContent(url: string): Promise<{content: string} |
         if (error instanceof Error) {
             return { error: error.message };
         }
-        return { error: 'Sayfa içeriği alınırken bilinmeyen bir hata oluştu.' };
+        return { error: 'Unknown error fetching page content.' };
     }
 }
