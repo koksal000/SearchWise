@@ -86,7 +86,7 @@ export function SearchApp() {
           break;
       }
 
-      if (response && 'error' in response && response.error) {
+      if (response && 'error' in response) {
         toast({
             variant: "destructive",
             title: "Arama Hatası",

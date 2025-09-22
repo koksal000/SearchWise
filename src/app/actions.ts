@@ -15,11 +15,6 @@ type SearchParams = {
 }
 
 async function fetchPageContentFromProxy(url: string): Promise<{ content: string } | { error: string }> {
-    // This function will call our internal proxy API route.
-    // The logic is now inside actions.ts itself, calling the /api/proxy endpoint.
-    // For simplicity in this refactor, we will put the fetch logic directly in fetchWithScraping
-    // and remove the need for a separate API route for now.
-    // This keeps the server actions self-contained.
     try {
         const response = await fetch(url, {
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
@@ -46,7 +41,6 @@ async function fetchWithScraping(query: string, searchType: SearchType): Promise
     let url = '';
     const encodedQuery = encodeURIComponent(query);
     
-    // Construct Google search URL based on search type
     switch (searchType) {
         case 'images':
             url = `https://www.google.com/search?q=${encodedQuery}&udm=2`;
@@ -64,7 +58,6 @@ async function fetchWithScraping(query: string, searchType: SearchType): Promise
     }
 
     try {
-        // Use the new internal proxy fetcher
         const pageContentResult = await fetchPageContentFromProxy(url);
 
         if ('error' in pageContentResult) {
@@ -180,7 +173,6 @@ export async function searchNews({ query, page, safe }: SearchParams): Promise<S
 
 
 export async function searchVideos({ query, page, safe }: SearchParams): Promise<{ items: VideoSearchResultItem[] } & Omit<SearchResults, 'items'> | { error:string }> {
-  // First, get web search results which might contain video links.
   const searchResult = await search({ query: `${query} video`, page, safe });
   
   if ('error' in searchResult) {
@@ -191,13 +183,10 @@ export async function searchVideos({ query, page, safe }: SearchParams): Promise
     return { ...searchResult, items: [] };
   }
 
-  // Then, for each result, fetch its page content and extract video data.
   const videoDataPromises = searchResult.items.map(async (item: SearchResultItem): Promise<VideoSearchResultItem> => {
     try {
-      // Use the reliable proxy fetcher
       const pageContentResult = await fetchPageContentFromProxy(item.link);
       if ('error' in pageContentResult) {
-        // If fetching page fails, return the original item without video data
         return item;
       }
       const htmlContent = pageContentResult.content;
@@ -210,7 +199,7 @@ export async function searchVideos({ query, page, safe }: SearchParams): Promise
       };
     } catch (e) {
       console.error(`Failed to process URL ${item.link} for video data:`, e);
-      return item; // Return original item on error
+      return item; 
     }
   });
 
@@ -223,10 +212,9 @@ export async function fetchPageContent(url: string): Promise<{content: string} |
     try {
         const { canBeIframed: isIframable } = await canBeIframed({ url });
         if (isIframable) {
-            return { content: '' }; // Let the iframe handle it directly
+            return { content: '' }; 
         }
 
-        // Use the reliable proxy fetcher for simplified view
         const pageContentResult = await fetchPageContentFromProxy(url);
         if ('error' in pageContentResult) {
             return { error: pageContentResult.error };
