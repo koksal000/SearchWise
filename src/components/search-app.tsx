@@ -21,6 +21,7 @@ import { TabsPanel } from './panels/tabs-panel';
 import { WebViewer } from './web-viewer';
 import { ImageSearchDialog } from './image-search-dialog';
 import { SecurityWarningDialog } from './security-warning-dialog';
+import { UrlConfirmationDialog } from './url-confirmation-dialog';
 
 type View = 'home' | 'results';
 
@@ -40,6 +41,7 @@ export function SearchApp() {
   const [isImageSearchDialogOpen, setImageSearchDialogOpen] = useState(false);
 
   const [securityWarning, setSecurityWarning] = useState<{ url: string; title: string } | null>(null);
+  const [urlConfirmation, setUrlConfirmation] = useState<{ query: string, url: string; title: string } | null>(null);
   
   const { settings } = useSettings();
   const { addToHistory } = useHistory();
@@ -202,17 +204,20 @@ export function SearchApp() {
     }
   }
 
+  const navigateToUrl = (url: string, title: string) => {
+    if (url.startsWith('http://')) {
+      setSecurityWarning({ url, title });
+    } else {
+      openUrl(url, title);
+    }
+  }
+
   const submitSearch = (e: FormEvent) => {
     e.preventDefault();
     if (isValidUrl(query)) {
       const url = normalizeUrl(query);
       const title = new URL(url).hostname;
-
-      if (url.startsWith('http://')) {
-        setSecurityWarning({ url, title });
-      } else {
-        openUrl(url, title);
-      }
+      setUrlConfirmation({ query, url, title });
     } else {
       handleSearch(query, 1, activeFilter);
     }
@@ -233,7 +238,7 @@ export function SearchApp() {
     if (isValidUrl(historyQuery)) {
         const url = normalizeUrl(historyQuery);
         const title = new URL(url).hostname;
-        openUrl(url, title);
+        setUrlConfirmation({ query: historyQuery, url, title });
     } else {
         handleSearch(historyQuery, 1, 'all');
     }
@@ -264,6 +269,17 @@ export function SearchApp() {
       setSecurityWarning(null);
     }
   };
+
+  const handleUrlConfirmation = (decision: 'navigate' | 'search') => {
+    if (!urlConfirmation) return;
+
+    if (decision === 'navigate') {
+        navigateToUrl(urlConfirmation.url, urlConfirmation.title);
+    } else {
+        handleSearch(urlConfirmation.query, 1, activeFilter);
+    }
+    setUrlConfirmation(null);
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -337,6 +353,12 @@ export function SearchApp() {
         isOpen={!!securityWarning}
         onClose={() => setSecurityWarning(null)}
         onConfirm={onConfirmSecurityWarning}
+      />
+      <UrlConfirmationDialog
+        isOpen={!!urlConfirmation}
+        onClose={() => setUrlConfirmation(null)}
+        onConfirm={(decision) => handleUrlConfirmation(decision)}
+        url={urlConfirmation?.url || ''}
       />
     </div>
   );
