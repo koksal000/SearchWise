@@ -168,7 +168,12 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
   return (
     <>
       <div className="fixed inset-0 z-50 bg-background flex flex-col">
-        <header className="flex flex-col flex-shrink-0 border-b p-2 gap-2">
+        <header className="relative flex flex-col flex-shrink-0 border-b p-2 gap-2">
+            {isLoading && (
+              <div className="absolute top-0 left-0 w-full h-0.5 z-20">
+                <Progress value={undefined} className="h-0.5 w-full" />
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="w-full relative">
               <div className='absolute left-3 top-1/2 -translate-y-1/2'>
                 {viewMode === 'proxied' ? (
@@ -219,11 +224,6 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
               <ExternalLink className="h-5 w-5" />
             </Button>
           </div>
-          {isLoading && (
-              <div className="absolute top-0 left-0 w-full h-1 z-20">
-                <Progress value={isLoading ? undefined : 100} className="h-0.5 w-full" />
-              </div>
-          )}
         </header>
         <div className="flex-grow relative bg-muted">
           {isLoading && !srcDocContent && (
