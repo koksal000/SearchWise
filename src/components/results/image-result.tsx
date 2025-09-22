@@ -12,7 +12,7 @@ type ImageResultsGridProps = {
 export function ImageResultsGrid({ items, onResultClick }: ImageResultsGridProps) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-      {items.map((item, index) => (
+      {items.filter(item => item.image).map((item, index) => (
         <a
           key={index}
           href={item.image.contextLink}
