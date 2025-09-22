@@ -17,7 +17,7 @@ type SearchParams = {
 async function fetchPageContentFromProxy(url: string): Promise<{ content: string } | { error: string }> {
     try {
         const response = await fetch(url, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' },
+            headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 13; SM-S901B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36' },
         });
 
         if (!response.ok) {
@@ -36,24 +36,31 @@ async function fetchPageContentFromProxy(url: string): Promise<{ content: string
 }
 
 
-async function fetchWithScraping(query: string, searchType: SearchType): Promise<SearchResults | ImageSearchResults | { error: string }> {
+async function fetchWithScraping(query: string, searchType: SearchType, safe: 'active' | 'off', page: number): Promise<SearchResults | ImageSearchResults | { error: string }> {
     console.log(`API quota likely exceeded or keys not provided. Falling back to scraping for ${searchType} search.`);
-    let url = '';
-    const encodedQuery = encodeURIComponent(query);
     
+    const encodedQuery = encodeURIComponent(query);
+    let url = '';
+
+    const start = (page - 1) * 10;
+
     switch (searchType) {
         case 'images':
-            url = `https://www.google.com/search?q=${encodedQuery}&tbm=isch`;
+            if (safe === 'off') {
+                url = `https://www.google.com/search?client=ms-android-samsung-ss&sca_esv=9594ada01a48a169&sxsrf=AE3TifPhslWpMCq4bGnc8wgiE6JizS655w%3A1758579204479&udm=2&fbs=AIIjpHymm3QGL3QwQaAHNV0eUTUFlr-h8bP2w7L3Ug7M1_MWTTbggidNMU5Ghv1pIb-gjcpEXCHwdKRke2xSb93dPJRfIMxISEuSZrpoHQak0tOqS6_7Dpfz1ughrsCSFivbKFmJWQ3xIdZSd5ypg5bFlPXd5EzApyYfuXJc4USZni3ecnjlsd48EVh9xg7opAvV9t8CUkdqX-phQ1xrDchIUmPSZ5bPufJOUQrxSD_WQmvFrXxjeDL-d_aUtgR0OhBu7SvD-2jp&q=${encodedQuery}&sa=X&ved=2ahUKEwi9yvmKsu2PAxUXbvEDHaZ1PAsQm-ELegQIBhAE&biw=384&bih=731&dpr=2.81&no_sw_cr=1&zx=1758579215282&sssc=1&vet=12ahUKEwi9yvmKsu2PAxUXbvEDHaZ1PAsQm-ELegQIBhAE..i&start=${start}`;
+            } else {
+                url = `https://www.google.com/search?client=ms-android-samsung-ss&sca_esv=9594ada01a48a169&udm=2&fbs=AIIjpHyjDOZ_Qm4jPhsJYko6FQq1c7ccSu0qUPwXCIshHgPoxFN3uWGxLcPSMjM16T2jJbKZ0cAAH2ogSsoRV7thp3auwRYmL1XUIz6vRS48yj3yiVZTkn71yziXFvMmgaN49QDem6W4ASXQUK42GKt9UviRbjAn2I4ePQ3EE11FyBidDzfjOygca4qVxjaShj--w9LuRE4m3KH_lEHzIXAV46kbAlgJLwyi3WRmdd_e9H_mpVKyl4wmqJE0HZHLlEgfjL-Dw2ADORsSJ3Ku9-m8gUix5PcQNA&q=${encodedQuery}&sa=X&ved=2ahUKEwj-3IjcsO2PAxUia_EDHZNSFCIQtKgLegQIDxAB&biw=384&bih=731&dpr=2.81&start=${start}`;
+            }
             break;
         case 'news':
-            url = `https://www.google.com/search?q=${encodedQuery}&tbm=nws`;
+            url = `https://www.google.com/search?q=${encodedQuery}&tbm=nws&start=${start}`;
             break;
         case 'videos':
-             url = `https://www.google.com/search?q=${encodedQuery}&tbm=vid`;
+             url = `https://www.google.com/search?q=${encodedQuery}&tbm=vid&start=${start}`;
             break;
         case 'all':
         default:
-            url = `https://www.google.com/search?q=${encodedQuery}`;
+            url = `https://www.google.com/search?q=${encodedQuery}&start=${start}`;
             break;
     }
 
@@ -110,17 +117,17 @@ async function fetchWithScraping(query: string, searchType: SearchType): Promise
 }
 
 
-async function fetchFromApi(params: URLSearchParams, query: string, searchType: SearchType): Promise<any> {
+async function fetchFromApi(params: URLSearchParams, query: string, searchType: SearchType, safe: 'active' | 'off', page: number): Promise<any> {
   if (!API_KEY || !CX_ID) {
     console.log("API_KEY or CX_ID is missing. Falling back to scraping.");
-    return fetchWithScraping(query, searchType);
+    return fetchWithScraping(query, searchType, safe, page);
   }
   try {
     const response = await fetch(`${API_URL}?${params.toString()}`);
     if (!response.ok) {
       if (response.status === 429) {
         console.log("Google API quota exceeded. Falling back to scraping.");
-        return fetchWithScraping(query, searchType);
+        return fetchWithScraping(query, searchType, safe, page);
       }
       const errorData = await response.json();
       const message = errorData.error?.message || 'An error occurred with the Search API.';
@@ -133,7 +140,7 @@ async function fetchFromApi(params: URLSearchParams, query: string, searchType: 
   } catch (error) {
     console.error('Fetch API Error:', error);
     // Fallback to scraping on network-like errors
-    return fetchWithScraping(query, searchType);
+    return fetchWithScraping(query, searchType, safe, page);
   }
 }
 
@@ -146,7 +153,7 @@ export async function search({ query, page, safe }: SearchParams): Promise<Searc
     safe,
     hl: 'en',
   });
-  return fetchFromApi(params, query, 'all');
+  return fetchFromApi(params, query, 'all', safe, page);
 }
 
 export async function searchImages({ query, page, safe }: SearchParams): Promise<ImageSearchResults | { error: string }> {
@@ -159,7 +166,7 @@ export async function searchImages({ query, page, safe }: SearchParams): Promise
     hl: 'en',
     searchType: 'image',
   });
-  return fetchFromApi(params, query, 'images');
+  return fetchFromApi(params, query, 'images', safe, page);
 }
 
 export async function searchNews({ query, page, safe }: SearchParams): Promise<SearchResults | { error: string }> {
@@ -172,14 +179,14 @@ export async function searchNews({ query, page, safe }: SearchParams): Promise<S
       hl: 'en',
       sort: 'date',
     });
-    return fetchFromApi(params, query, 'news');
+    return fetchFromApi(params, query, 'news', safe, page);
 }
 
 
 export async function searchVideos({ query, page, safe }: SearchParams): Promise<{ items: VideoSearchResultItem[] } & Omit<SearchResults, 'items'> | { error:string }> {
   // Video scraping is more reliable than the standard API for getting direct video links.
   // So we prioritize scraping for videos.
-  const searchResult = await fetchWithScraping(`${query} video`, 'videos');
+  const searchResult = await fetchWithScraping(`${query} video`, 'videos', safe, page);
   
   if ('error' in searchResult) {
     return searchResult;
