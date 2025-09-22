@@ -91,16 +91,13 @@ async function fetchFromApi(params: URLSearchParams, query: string, searchType: 
         // Quota exceeded, fall back to scraping
         return fetchWithScraping(query, searchType);
       }
-      throw new Error(errorData.error?.message || 'Arama API\'si ile bir hata oluştu.');
+      return { error: errorData.error?.message || 'Arama API\'si ile bir hata oluştu.' };
     }
     return await response.json();
   } catch (error) {
     console.error('Fetch API Error:', error);
-    if (error instanceof Error) {
-        // If fetch itself fails (e.g. network error) or API returns non-429 error, try scraping
-        return fetchWithScraping(query, searchType);
-    }
-    return { error: 'Arama sonuçları alınırken bilinmeyen bir hata oluştu.' };
+    // If fetch itself fails (e.g. network error) or API returns non-429 error, try scraping
+    return fetchWithScraping(query, searchType);
   }
 }
 
