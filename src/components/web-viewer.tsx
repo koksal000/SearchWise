@@ -50,7 +50,7 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
   const canGoBack = historyIndex > 0;
   const canGoForward = historyIndex < history.length - 1;
 
-  const startLoading = () => {
+  const startLoading = useCallback(() => {
     setIsLoading(true);
     setProgress(10);
     if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
@@ -63,16 +63,16 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
         return prev + 5;
       });
     }, 200);
-  };
+  }, []);
 
-  const finishLoading = () => {
+  const finishLoading = useCallback(() => {
     if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
     setProgress(100);
     setTimeout(() => {
       setIsLoading(false);
       setProgress(0);
     }, 500);
-  };
+  }, []);
 
   const loadContent = useCallback(async (url: string, navigationType: 'new' | 'history' = 'new') => {
     startLoading();
@@ -132,12 +132,11 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
           onClose();
       }
     } finally {
-      // finishLoading is called by iframe onLoad or here for proxied content
       if (viewMode !== 'direct') {
           finishLoading();
       }
     }
-  }, [toast, onClose, historyIndex, canGoBack, viewMode]);
+  }, [toast, onClose, historyIndex, canGoBack, viewMode, startLoading, finishLoading]);
 
   useEffect(() => {
     if (tab && tab.url !== currentUrl) {
@@ -252,7 +251,7 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
                 </Button>
             </div>
           </div>
-          {isLoading && <Progress value={progress} className="h-0.5 w-full" />}
+          {isLoading && <Progress value={progress} className="absolute bottom-0 h-0.5 w-full" />}
         </header>
         <div className="flex-grow relative bg-muted">
           {isLoading && viewMode === 'loading' && (

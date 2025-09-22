@@ -3,6 +3,7 @@
 import { canBeIframed } from '@/ai/flows/can-be-iframed';
 import { extractScrapedResults, extractVideoData } from '@/lib/scraping-service';
 import { SearchResults, ImageSearchResults, VideoSearchResultItem, SearchResultItem, SearchType, ImageSearchResultItemImage } from '@/lib/types';
+import { fetchPageContentFlow } from '@/ai/flows/fetch-page-content-flow';
 
 const API_KEY = process.env.GOOGLE_API_KEY;
 const CX_ID = process.env.GOOGLE_CX_ID;
@@ -37,11 +38,8 @@ async function fetchWithScraping(query: string, searchType: SearchType): Promise
     }
 
     try {
-        const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' }});
-        if (!response.ok) {
-            throw new Error(`Failed to fetch Google search page. Status: ${response.status}`);
-        }
-        const htmlContent = await response.text();
+        const pageContentResult = await fetchPageContentFlow({ url });
+        const htmlContent = pageContentResult.content;
         
         const scrapedResults = extractScrapedResults(htmlContent, searchType);
 
@@ -190,16 +188,8 @@ export async function fetchPageContent(url: string): Promise<{content: string} |
             return { content: '' }; // Let the iframe handle it directly
         }
 
-        const response = await fetch(url, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-            }
-        });
-        if (!response.ok) {
-            return { error: `Failed to fetch page. Status: ${response.status}` };
-        }
-        const content = await response.text();
-        return { content };
+        const pageContentResult = await fetchPageContentFlow({ url });
+        return { content: pageContentResult.content };
     } catch (error) {
         console.error('Fetch Page Content Error:', error);
         if (error instanceof Error) {
