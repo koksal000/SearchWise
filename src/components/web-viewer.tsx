@@ -54,7 +54,6 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
     setSrcDocContent('');
     
     if (navigationType === 'new') {
-        // Eğer yeni bir URL'e gidiliyorsa, mevcut index'ten sonraki geçmişi sil ve yeni URL'i ekle
         setHistory(prev => {
             const newHistory = prev.slice(0, historyIndex + 1);
             newHistory.push(url);
@@ -81,7 +80,6 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
                 }
                 if (target && target.href) {
                   e.preventDefault();
-                  // Sadece http/https linklerini yakala
                   if (target.protocol === 'http:' || target.protocol === 'https:') {
                     window.parent.postMessage({ type: 'navigate', url: target.href }, '*');
                   }
@@ -101,11 +99,10 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
         title: "Sayfa yüklenemedi",
         description: error instanceof Error ? error.message : 'Bilinmeyen bir hata oluştu.',
       });
-      // Hata durumunda, geçmişte bir önceki sayfaya dön
       if (canGoBack) {
           setHistoryIndex(prev => prev - 1);
       } else {
-          onClose(); // Gidecek yer yoksa kapat
+          onClose();
       }
     }
   }, [toast, onClose, historyIndex, canGoBack]);
@@ -171,8 +168,8 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
   return (
     <>
       <div className="fixed inset-0 z-50 bg-background flex flex-col">
-        <header className="flex flex-col flex-shrink-0 border-b p-2">
-            <form onSubmit={handleSubmit} className="w-full relative mb-2">
+        <header className="flex flex-col flex-shrink-0 border-b p-2 gap-2">
+            <form onSubmit={handleSubmit} className="w-full relative">
               <div className='absolute left-3 top-1/2 -translate-y-1/2'>
                 {viewMode === 'proxied' ? (
                     <Popover>
@@ -213,23 +210,22 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
                 <Button variant="ghost" size="icon" className='h-8 w-8' onClick={goForward} disabled={!canGoForward || isLoading}>
                     <ArrowRight className="h-5 w-5" />
                 </Button>
+                 <Button variant="ghost" size="icon" className='h-8 w-8' onClick={reload} disabled={isLoading}>
+                    <RefreshCw className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
+                </Button>
             </div>
-            
-            <Button variant="ghost" size="icon" className='h-8 w-8' onClick={reload} disabled={isLoading}>
-              <RefreshCw className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
-            </Button>
             
             <Button variant="ghost" size="icon" className='h-8 w-8' onClick={() => window.open(currentUrl, '_blank')} title="Yeni sekmede aç">
               <ExternalLink className="h-5 w-5" />
             </Button>
           </div>
-        </header>
-        <div className="flex-grow relative">
           {isLoading && (
               <div className="absolute top-0 left-0 w-full h-1 z-20">
-                <Progress value={undefined} className="h-0.5 w-full animate-pulse" />
+                <Progress value={isLoading ? undefined : 100} className="h-0.5 w-full" />
               </div>
           )}
+        </header>
+        <div className="flex-grow relative bg-muted">
           {isLoading && !srcDocContent && (
               <div className="absolute inset-0 flex items-center justify-center bg-background z-10">
                   <Loader2 className="h-8 w-8 animate-spin text-primary"/>
