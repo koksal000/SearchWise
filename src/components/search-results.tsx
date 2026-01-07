@@ -50,6 +50,7 @@ export function SearchResults({
   const renderResults = () => {
     switch (searchType) {
       case SearchType.IMAGES:
+      case SearchType.GIF:
         return <ImageResultsGrid items={results as ImageSearchResultItem[]} onImageResultClick={onImageResultClick} />;
       case SearchType.VIDEOS:
         return (

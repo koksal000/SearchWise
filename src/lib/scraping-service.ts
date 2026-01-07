@@ -5,7 +5,7 @@ import { parse, HTMLElement } from 'node-html-parser';
 export function extractScrapedResults(htmlContent: string, searchType: SearchType): ScrapedResult[] {
     const root = parse(htmlContent);
 
-    if (searchType === SearchType.IMAGES) {
+    if (searchType === SearchType.IMAGES || searchType === SearchType.GIF) {
         const imageResults: ScrapedResult[] = [];
         const imageElements = root.querySelectorAll('div[data-ri]');
         

@@ -5,7 +5,7 @@ import { useSettings } from '@/hooks/use-settings';
 import { useHistory } from '@/hooks/use-history';
 import { useTabs } from '@/hooks/use-tabs';
 import { SearchResultItem, SearchType, ImageSearchResultItem, VideoSearchResultItem, MediaViewerItem } from '@/lib/types';
-import { search, searchImages, searchVideos, searchNews, getFullResolutionImage } from '@/app/actions';
+import { search, searchImages, searchVideos, searchNews, getFullResolutionImage, searchGifs } from '@/app/actions';
 import { getImageSearchTerms } from '@/ai/flows/get-image-search-terms';
 import { useToast } from '@/hooks/use-toast';
 import { isValidUrl, normalizeUrl } from '@/lib/url-handler';
@@ -78,6 +78,9 @@ export function SearchApp() {
       switch (filter) {
         case 'images':
           response = await searchImages({ query: searchQuery, page, safe });
+          break;
+        case 'gif':
+          response = await searchGifs({ query: searchQuery, page, safe });
           break;
         case 'videos':
           response = await searchVideos({ query: searchQuery, page, safe });

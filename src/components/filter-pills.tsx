@@ -3,7 +3,7 @@
 import { SearchType } from '@/lib/types';
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
-import { Image as ImageIcon, Video, Newspaper, Globe } from 'lucide-react';
+import { Image as ImageIcon, Video, Newspaper, Globe, FileVideo } from 'lucide-react';
 
 type FilterPillsProps = {
   activeFilter: SearchType;
@@ -15,6 +15,7 @@ const filters: { id: SearchType; label: string; icon: React.ComponentType<{ clas
   { id: SearchType.IMAGES, label: 'Görseller', icon: ImageIcon },
   { id: SearchType.VIDEOS, label: 'Videolar', icon: Video },
   { id: SearchType.NEWS, label: 'Haberler', icon: Newspaper },
+  { id: SearchType.GIF, label: 'GIF\'ler', icon: FileVideo },
 ];
 
 export function FilterPills({ activeFilter, onFilterChange }: FilterPillsProps) {

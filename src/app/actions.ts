@@ -45,13 +45,19 @@ async function fetchWithScraping(query: string, searchType: SearchType, safe: 'a
     const start = (page - 1) * 10;
 
     switch (searchType) {
+        case 'gif':
         case 'images':
-            if (safe === 'off') {
-                // unsafe image search URL
-                url = `https://www.google.com/search?q=${encodedQuery}&tbm=isch&safe=off&start=${start}`;
+            let tbm = 'isch';
+            if (searchType === 'gif') {
+                // Google uses a specific parameter for file type in image search
+                url = `https://www.google.com/search?q=${encodedQuery}&tbm=isch&tbs=itp:animated&start=${start}`;
             } else {
-                // safe image search URL
-                url = `https://www.google.com/search?q=${encodedQuery}&tbm=isch&safe=active&start=${start}`;
+                 url = `https://www.google.com/search?q=${encodedQuery}&tbm=isch&start=${start}`;
+            }
+             if (safe === 'off') {
+                url += '&safe=off';
+            } else {
+                url += '&safe=active';
             }
             break;
         case 'news':
@@ -88,7 +94,7 @@ async function fetchWithScraping(query: string, searchType: SearchType, safe: 'a
              formattedSearchTime: `0.00`,
         }
 
-        if (searchType === 'images') {
+        if (searchType === 'images' || searchType === 'gif') {
              const imageItems: ImageSearchResultItem[] = scrapedResults.map(item => ({
                 title: item.title,
                 link: item.link,
@@ -170,6 +176,20 @@ export async function searchImages({ query, page, safe }: SearchParams): Promise
   });
   return fetchFromApi(params, query, 'images', safe, page);
 }
+
+export async function searchGifs({ query, page, safe }: SearchParams): Promise<ImageSearchResults | { error: string }> {
+    const params = new URLSearchParams({
+      key: API_KEY!,
+      cx: CX_ID!,
+      q: query,
+      start: ((page - 1) * 10 + 1).toString(),
+      safe,
+      hl: 'en',
+      searchType: 'image',
+      fileType: 'gif',
+    });
+    return fetchFromApi(params, query, 'gif', safe, page);
+  }
 
 export async function searchNews({ query, page, safe }: SearchParams): Promise<SearchResults | { error: string }> {
     const params = new URLSearchParams({

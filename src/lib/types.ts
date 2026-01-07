@@ -55,7 +55,8 @@ export enum SearchType {
     ALL = "all",
     IMAGES = "images",
     VIDEOS = "videos",
-    NEWS = "news"
+    NEWS = "news",
+    GIF = "gif",
 }
 
 export type AppSettings = {
