@@ -187,7 +187,7 @@ export async function searchNews({ query, page, safe }: SearchParams): Promise<S
 
 export async function searchVideos({ query, page, safe }: SearchParams): Promise<{ items: VideoSearchResultItem[] } & Omit<SearchResults, 'items'> | { error:string }> {
   // Video scraping is more reliable, so we prioritize scraping for videos.
-  const searchResult = await fetchWithScraping(`${query}`, 'videos', safe, page);
+  const searchResult = await fetchWithScraping(`${query} video`, 'videos', safe, page);
   
   if ('error' in searchResult) {
     return searchResult;

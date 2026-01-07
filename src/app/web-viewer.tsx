@@ -132,11 +132,13 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
           onClose();
       }
     } finally {
-      if (viewMode !== 'direct') {
+      // Direct modda iframe'in kendi yükleme göstergesi olduğundan, 
+      // sadece proxied modda manuel olarak yüklemeyi bitiriyoruz.
+      if (viewMode !== 'direct' || forceProxy) {
           finishLoading();
       }
     }
-  }, [toast, onClose, historyIndex, canGoBack, startLoading, finishLoading]);
+  }, [toast, onClose, historyIndex, canGoBack, startLoading, finishLoading, viewMode]);
 
   useEffect(() => {
     if (tab && tab.url !== currentUrl) {
@@ -299,5 +301,3 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
     </>
   );
 }
-
-    
