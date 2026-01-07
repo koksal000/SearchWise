@@ -1,6 +1,6 @@
 'use client';
 
-import { X, ExternalLink, RefreshCw, Search, ShieldAlert, ArrowLeft, ArrowRight } from 'lucide-react';
+import { X, ExternalLink, RefreshCw, Search, ShieldAlert, ArrowLeft, ArrowRight, Replace } from 'lucide-react';
 import { Button } from './ui/button';
 import { useState, useEffect, FormEvent, useCallback, useMemo, useRef } from 'react';
 import { Loader2 } from 'lucide-react';
@@ -74,7 +74,7 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
     }, 500);
   }, []);
 
-  const loadContent = useCallback(async (url: string, navigationType: 'new' | 'history' = 'new') => {
+  const loadContent = useCallback(async (url: string, navigationType: 'new' | 'history' = 'new', forceProxy: boolean = false) => {
     startLoading();
     setDisplayUrl(url);
     setViewKey(Date.now());
@@ -90,13 +90,13 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
     }
 
     try {
-        const result = await fetchPageContent(url);
+        const result = await fetchPageContent(url, forceProxy);
         
         if ('error' in result) {
             throw new Error(result.error);
         }
 
-        if (result.content) { // Proxied mode
+        if (result.viewMode === 'proxied') {
             const baseTag = `<base href="${new URL(url).origin}">`;
             const navigationInterceptorScript = `
                 <script>
@@ -116,27 +116,26 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
               `;
             setSrcDocContent(baseTag + navigationInterceptorScript + result.content);
             setViewMode('proxied');
-        } else { // Direct mode
+            finishLoading();
+        } else { // direct
             setViewMode('direct');
+            // finishLoading will be called by the iframe's onLoad event
         }
 
     } catch (error) {
        toast({
         variant: "destructive",
-        title: "Page failed to load",
-        description: error instanceof Error ? error.message : 'An unknown error occurred.',
+        title: "Sayfa yüklenemedi",
+        description: error instanceof Error ? error.message : 'Bilinmeyen bir hata oluştu.',
       });
       if (canGoBack) {
           setHistoryIndex(prev => prev - 1);
       } else {
           onClose();
       }
-    } finally {
-      if (viewMode !== 'direct') {
-          finishLoading();
-      }
+      finishLoading();
     }
-  }, [toast, onClose, historyIndex, canGoBack, viewMode, startLoading, finishLoading]);
+  }, [toast, onClose, historyIndex, canGoBack, startLoading, finishLoading]);
 
   useEffect(() => {
     if (tab && tab.url !== currentUrl) {
@@ -145,7 +144,7 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
         loadContent(tab.url, 'history');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
+  }, [tab, loadContent]);
   
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -162,11 +161,16 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
     };
   }, [loadContent, currentUrl]);
   
-  const reload = () => {
+  const reload = (forceProxy = false) => {
     if (currentUrl) {
-      loadContent(currentUrl, 'history');
+      loadContent(currentUrl, 'history', forceProxy);
     }
   };
+
+  const switchMode = () => {
+    const isForcingProxy = viewMode !== 'proxied';
+    reload(isForcingProxy);
+  }
 
   const goBack = () => {
     if (canGoBack) {
@@ -205,16 +209,16 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
                     {viewMode === 'proxied' ? (
                         <Popover>
                         <PopoverTrigger asChild>
-                            <button className="flex items-center" aria-label="Simplified mode info">
+                            <button className="flex items-center" aria-label="Basitleştirilmiş mod bilgisi">
                             <ShieldAlert className="h-4 w-4 text-amber-500" />
                             </button>
                         </PopoverTrigger>
                         <PopoverContent className="w-80">
                             <div className="grid gap-4">
                             <div className="space-y-2">
-                                <h4 className="font-medium leading-none">Simplified View</h4>
+                                <h4 className="font-medium leading-none">Basitleştirilmiş Görünüm</h4>
                                 <p className="text-sm text-muted-foreground">
-                                This site is shown in simplified mode because it restricts embedding. Some features like logins or complex scripts may not work.
+                                Bu site, yerleştirmeyi kısıtladığı için basitleştirilmiş modda gösterilmektedir. Giriş yapma veya karmaşık komut dosyaları gibi bazı özellikler çalışmayabilir.
                                 </p>
                             </div>
                             </div>
@@ -241,20 +245,25 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
                     <Button variant="ghost" size="icon" className='h-8 w-8' onClick={goForward} disabled={!canGoForward || isLoading}>
                         <ArrowRight className="h-5 w-5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className='h-8 w-8' onClick={reload} disabled={isLoading}>
+                    <Button variant="ghost" size="icon" className='h-8 w-8' onClick={() => reload()} disabled={isLoading}>
                         <RefreshCw className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
                     </Button>
                 </div>
                 
-                <Button variant="ghost" size="icon" className='h-8 w-8' onClick={() => window.open(currentUrl, '_blank')} title="Open in new tab">
-                <ExternalLink className="h-5 w-5" />
-                </Button>
+                <div className='flex items-center gap-1'>
+                    <Button variant="ghost" size="icon" className='h-8 w-8' onClick={switchMode} title="Görünüm Modunu Değiştir" disabled={isLoading}>
+                        <Replace className="h-5 w-5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className='h-8 w-8' onClick={() => window.open(currentUrl, '_blank')} title="Yeni sekmede aç">
+                        <ExternalLink className="h-5 w-5" />
+                    </Button>
+                </div>
             </div>
           </div>
           {isLoading && <Progress value={progress} className="absolute bottom-0 h-0.5 w-full" />}
         </header>
         <div className="flex-grow relative bg-muted">
-          {isLoading && viewMode === 'loading' && (
+          {isLoading && viewMode !== 'proxied' && (
               <div className="absolute inset-0 flex items-center justify-center bg-background z-10">
                   <Loader2 className="h-8 w-8 animate-spin text-primary"/>
               </div>
@@ -276,14 +285,14 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
       <AlertDialog open={isCloseConfirmationOpen} onOpenChange={setCloseConfirmationOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirm</AlertDialogTitle>
+            <AlertDialogTitle>Onayla</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to exit this tab? Your changes may be lost.
+              Bu sekmeden çıkmak istediğinizden emin misiniz? Değişiklikleriniz kaybolabilir.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={onClose}>Exit</AlertDialogAction>
+            <AlertDialogCancel>İptal</AlertDialogCancel>
+            <AlertDialogAction onClick={onClose}>Çık</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
