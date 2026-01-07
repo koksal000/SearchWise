@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -24,6 +24,7 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
   } from "@/components/ui/alert-dialog"
+import { HistoryItem } from '@/lib/types';
 
 type HistoryPanelProps = {
   isOpen: boolean;
@@ -47,20 +48,34 @@ function getTimeAgo(timestamp: number): string {
 
 
 export function HistoryPanel({ isOpen, onOpenChange, onHistoryItemClick }: HistoryPanelProps) {
-  const { history, clearHistory } = useHistory();
+  const { history, clearHistory, removeHistoryItem } = useHistory();
+  const [itemToDelete, setItemToDelete] = useState<HistoryItem | null>(null);
 
   const handleItemClick = (query: string) => {
     onHistoryItemClick(query);
     onOpenChange(false);
   };
+  
+  const handleLongPress = (e: React.TouchEvent<HTMLButtonElement> | React.MouseEvent<HTMLButtonElement>, item: HistoryItem) => {
+      e.preventDefault();
+      setItemToDelete(item);
+  };
+  
+  const confirmDeleteItem = () => {
+    if(itemToDelete) {
+        removeHistoryItem(itemToDelete.id);
+        setItemToDelete(null);
+    }
+  }
 
   return (
+    <>
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
       <SheetContent className="flex flex-col">
         <SheetHeader>
           <SheetTitle>Arama Geçmişi</SheetTitle>
           <SheetDescription>
-            Son aramalarınız.
+            Son aramalarınız. Bir öğeyi silmek için üzerine basılı tutun.
           </SheetDescription>
         </SheetHeader>
         <div className="flex-grow overflow-hidden">
@@ -72,6 +87,7 @@ export function HistoryPanel({ isOpen, onOpenChange, onHistoryItemClick }: Histo
                     <button
                       key={item.id}
                       onClick={() => handleItemClick(item.query)}
+                      onContextMenu={(e) => handleLongPress(e, item)}
                       className="w-full text-left p-3 rounded-lg hover:bg-accent"
                     >
                       <p className="font-medium truncate">{item.query}</p>
@@ -113,5 +129,20 @@ export function HistoryPanel({ isOpen, onOpenChange, onHistoryItemClick }: Histo
         )}
       </SheetContent>
     </Sheet>
+    <AlertDialog open={!!itemToDelete} onOpenChange={(open) => !open && setItemToDelete(null)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Öğeyi Sil</AlertDialogTitle>
+            <AlertDialogDescription>
+                "{itemToDelete?.query}" aramasını geçmişten silmek istediğinizden emin misiniz?
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setItemToDelete(null)}>İptal</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmDeleteItem}>Sil</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

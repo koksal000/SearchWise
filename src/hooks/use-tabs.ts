@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, ReactNode, useState, useEffect, useCallback } from 'react';
-import { getTabs, saveTabs } from '@/lib/db';
+import useLocalStorage from './use-local-storage';
 import { TabItem } from '@/lib/types';
 import { nanoid } from 'nanoid';
 
@@ -18,29 +18,10 @@ type TabsContextType = {
 const TabsContext = createContext<TabsContextType | undefined>(undefined);
 
 export function TabsProvider({ children }: { children: ReactNode }) {
-  const [tabs, setTabs] = useState<TabItem[]>([]);
+  const [tabs, setTabs] = useLocalStorage<TabItem[]>('searchwise-tabs', []);
   const [activeTab, setActiveTab] = useState<string | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  useEffect(() => {
-    const loadTabs = async () => {
-      if (typeof window !== 'undefined') {
-        const storedTabs = await getTabs();
-        setTabs(storedTabs);
-        setIsInitialized(true);
-      }
-    };
-    loadTabs();
-  }, []);
-
-  useEffect(() => {
-    if (isInitialized && typeof window !== 'undefined') {
-      saveTabs(tabs);
-    }
-  }, [tabs, isInitialized]);
 
   const addTab = useCallback((url: string, title: string) => {
-    // Check if a tab with the same URL already exists
     const existingTab = tabs.find(tab => tab.url === url);
     if (existingTab) {
         setActiveTab(existingTab.id);
@@ -54,7 +35,7 @@ export function TabsProvider({ children }: { children: ReactNode }) {
     };
     setTabs(prev => [...prev, newTab]);
     setActiveTab(newTab.id);
-  }, [tabs]);
+  }, [tabs, setTabs]);
 
   const removeTab = useCallback((id: string) => {
     setTabs(prev => {
@@ -64,12 +45,12 @@ export function TabsProvider({ children }: { children: ReactNode }) {
       }
       return newTabs;
     });
-  }, [activeTab]);
+  }, [activeTab, setTabs]);
 
   const clearAllTabs = useCallback(() => {
     setTabs([]);
     setActiveTab(null);
-  }, []);
+  }, [setTabs]);
   
   const getTabById = useCallback((id: string) => {
     return tabs.find(tab => tab.id === id);

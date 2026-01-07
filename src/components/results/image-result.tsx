@@ -6,21 +6,17 @@ import { Card, CardContent } from "@/components/ui/card";
 
 type ImageResultsGridProps = {
   items: ImageSearchResultItem[];
-  onResultClick: (url: string, title: string) => void;
+  onImageResultClick: (item: ImageSearchResultItem) => void;
 };
 
-export function ImageResultsGrid({ items, onResultClick }: ImageResultsGridProps) {
+export function ImageResultsGrid({ items, onImageResultClick }: ImageResultsGridProps) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
       {items.filter(item => item.image && item.image.thumbnailLink).map((item, index) => (
-        <a
+        <button
           key={index}
-          href={item.link} // The link to the page containing the image
-          onClick={(e) => {
-            e.preventDefault();
-            onResultClick(item.link, item.title);
-          }}
-          className="group block"
+          onClick={() => onImageResultClick(item)}
+          className="group block text-left"
         >
           <Card className="overflow-hidden transition-all duration-300 group-hover:shadow-xl group-hover:-translate-y-1">
             <CardContent className="p-0">
@@ -42,7 +38,7 @@ export function ImageResultsGrid({ items, onResultClick }: ImageResultsGridProps
               </div>
             </CardContent>
           </Card>
-        </a>
+        </button>
       ))}
     </div>
   );

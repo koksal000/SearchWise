@@ -1,5 +1,5 @@
 import { ScrapedResult, SearchType } from './types';
-import { parse } from 'node-html-parser';
+import { parse, HTMLElement } from 'node-html-parser';
 
 
 export function extractScrapedResults(htmlContent: string, searchType: SearchType): ScrapedResult[] {
@@ -7,7 +7,6 @@ export function extractScrapedResults(htmlContent: string, searchType: SearchTyp
 
     if (searchType === SearchType.IMAGES) {
         const imageResults: ScrapedResult[] = [];
-        // Updated selector for image results container, works with mobile-like results
         const imageElements = root.querySelectorAll('div[data-ri]');
         
         for (const el of imageElements) {
@@ -18,14 +17,12 @@ export function extractScrapedResults(htmlContent: string, searchType: SearchTyp
             if (!pageLink) continue;
             
             const imgEl = el.querySelector('img');
-            // Prefer data-src for higher quality image, fallback to src
             const imageUrl = imgEl?.getAttribute('data-src') || imgEl?.getAttribute('src');
             if (!imageUrl) continue;
 
             const title = imgEl.getAttribute('alt') || 'Görsel Sonucu';
             
-            // For snippet, we can try to find a source, otherwise fallback to hostname
-            const snippetEl = linkEl.nextElementSibling; // The element next to the link often contains source info
+            const snippetEl = linkEl.nextElementSibling;
             const snippet = snippetEl?.innerText || new URL(`https://google.com${pageLink}`).hostname;
 
             imageResults.push({ title, link: `https://google.com${pageLink}`, snippet, imageUrl });
@@ -35,7 +32,6 @@ export function extractScrapedResults(htmlContent: string, searchType: SearchTyp
 
     if (searchType === SearchType.NEWS) {
         const newsResults: ScrapedResult[] = [];
-        // This selector seems to be working, keeping it.
         const newsElements = root.querySelectorAll('div.SoaBEf');
 
         for (const el of newsElements) {
@@ -55,10 +51,8 @@ export function extractScrapedResults(htmlContent: string, searchType: SearchTyp
         return newsResults;
     }
 
-    // Default to web search (covers 'all' and 'videos' which share a similar structure)
     const webResults: ScrapedResult[] = [];
-    // More robust selector for general search results
-    const resultElements = root.querySelectorAll('div.g, div.MjjY7, div.Gx5Zad');
+    const resultElements = root.querySelectorAll('div.MjjY7, div.Gx5Zad');
 
     for (const el of resultElements) {
         const linkEl = el.querySelector('a');
@@ -67,7 +61,6 @@ export function extractScrapedResults(htmlContent: string, searchType: SearchTyp
         const titleEl = el.querySelector('h3');
         const title = titleEl?.innerText;
 
-        // More robust selector for the snippet
         const snippetEl = el.querySelector('div.VwiC3b, .s3v9rd');
         const snippet = snippetEl?.innerText;
 
@@ -84,6 +77,15 @@ export function extractScrapedResults(htmlContent: string, searchType: SearchTyp
 export function extractVideoData(htmlContent: string): { videoUrl?: string; coverImageUrl?: string } {
     const root = parse(htmlContent);
 
+    // Prioritize meta tags as they are more reliable
+    const ogVideo = root.querySelector('meta[property="og:video"]');
+    if (ogVideo) {
+         return {
+            videoUrl: ogVideo.getAttribute('content'),
+            coverImageUrl: root.querySelector('meta[property="og:image"]')?.getAttribute('content')
+        };
+    }
+    
     // Try to find a <video> tag with a src attribute
     const videoTag = root.querySelector('video[src]');
     if (videoTag) {
@@ -102,15 +104,6 @@ export function extractVideoData(htmlContent: string): { videoUrl?: string; cove
         };
     }
     
-    // Look for OG (Open Graph) meta tags as a fallback
-    const ogVideo = root.querySelector('meta[property="og:video"]');
-    if (ogVideo) {
-         return {
-            videoUrl: ogVideo.getAttribute('content'),
-            coverImageUrl: root.querySelector('meta[property="og:image"]')?.getAttribute('content')
-        };
-    }
-    
     // Fallback for generic MP4 URLs in the content
     const urlRegex = /(https?:\/\/[^"'`]+\.mp4)/g;
     const matches = htmlContent.match(urlRegex);
@@ -122,4 +115,35 @@ export function extractVideoData(htmlContent: string): { videoUrl?: string; cove
     }
 
     return {};
+}
+
+// Function to find the highest resolution image on an image-hosting page.
+export function extractFullResolutionImage(htmlContent: string): string | null {
+    const root = parse(htmlContent);
+
+    // Look for OG image first, often high quality
+    const ogImage = root.querySelector('meta[property="og:image"]');
+    if (ogImage) {
+        return ogImage.getAttribute('content');
+    }
+
+    // Find all images and pick the largest one based on dimensions or heuristics
+    let largestImage: { url: string, area: number } | null = null;
+
+    const images = root.querySelectorAll('img');
+    images.forEach(img => {
+        const src = img.getAttribute('src');
+        if (!src || src.startsWith('data:')) return;
+        
+        // Use intrinsic dimensions if available
+        const width = parseInt(img.getAttribute('width') || '0');
+        const height = parseInt(img.getAttribute('height') || '0');
+        const area = width * height;
+
+        if (!largestImage || area > largestImage.area) {
+            largestImage = { url: src, area: area };
+        }
+    });
+
+    return largestImage ? largestImage.url : null;
 }

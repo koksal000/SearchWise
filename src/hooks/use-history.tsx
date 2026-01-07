@@ -8,6 +8,7 @@ import { useSettings } from './use-settings';
 type HistoryContextType = {
   history: HistoryItem[];
   addToHistory: (query: string) => void;
+  removeHistoryItem: (id: number) => void;
   clearHistory: () => void;
 };
 
@@ -30,13 +31,18 @@ export function HistoryProvider({ children }: { children: ReactNode }) {
       return [newItem, ...newHistory].slice(0, 100); // Keep latest 100
     });
   }, [setHistory, settings.saveHistory]);
+  
+  const removeHistoryItem = useCallback((id: number) => {
+    setHistory(prevHistory => prevHistory.filter(item => item.id !== id));
+  }, [setHistory]);
+
 
   const clearHistory = useCallback(() => {
     setHistory([]);
   }, [setHistory]);
 
   return (
-    <HistoryContext.Provider value={{ history, addToHistory, clearHistory }}>
+    <HistoryContext.Provider value={{ history, addToHistory, removeHistoryItem, clearHistory }}>
       {children}
     </HistoryContext.Provider>
   );

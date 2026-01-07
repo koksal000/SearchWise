@@ -1,5 +1,6 @@
 'use client';
 
+import React, { useState } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -23,6 +24,7 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
   } from "@/components/ui/alert-dialog"
+import { TabItem } from '@/lib/types';
 
 type TabsPanelProps = {
   isOpen: boolean;
@@ -41,19 +43,34 @@ function getFaviconUrl(url: string) {
 
 export function TabsPanel({ isOpen, onOpenChange, onTabItemClick }: TabsPanelProps) {
   const { tabs, removeTab, clearAllTabs, activeTab } = useTabs();
+  const [itemToDelete, setItemToDelete] = useState<TabItem | null>(null);
+
 
   const handleItemClick = (id: string) => {
     onTabItemClick(id);
     onOpenChange(false);
   };
+  
+  const handleLongPress = (e: React.TouchEvent<HTMLDivElement> | React.MouseEvent<HTMLDivElement>, item: TabItem) => {
+      e.preventDefault();
+      setItemToDelete(item);
+  };
+  
+  const confirmDeleteItem = () => {
+    if(itemToDelete) {
+        removeTab(itemToDelete.id);
+        setItemToDelete(null);
+    }
+  }
 
   return (
+    <>
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
       <SheetContent className="flex flex-col">
         <SheetHeader>
           <SheetTitle>Açık Sekmeler</SheetTitle>
           <SheetDescription>
-            Açık sekmelerinizi yönetin.
+            Açık sekmelerinizi yönetin. Bir sekmeyi silmek için üzerine basılı tutun.
           </SheetDescription>
         </SheetHeader>
         <div className="flex-grow overflow-hidden">
@@ -64,7 +81,11 @@ export function TabsPanel({ isOpen, onOpenChange, onTabItemClick }: TabsPanelPro
                   {tabs.map(item => {
                     const faviconUrl = getFaviconUrl(item.url);
                     return (
-                        <div key={item.id} className={`group flex items-center gap-2 p-2 rounded-lg hover:bg-accent ${activeTab === item.id ? 'bg-accent' : ''}`}>
+                        <div 
+                            key={item.id} 
+                            className={`group flex items-center gap-2 p-2 rounded-lg hover:bg-accent ${activeTab === item.id ? 'bg-accent' : ''}`}
+                            onContextMenu={(e) => handleLongPress(e, item)}
+                        >
                             <button
                                 onClick={() => handleItemClick(item.id)}
                                 className="flex-grow flex items-center gap-3 text-left"
@@ -83,7 +104,10 @@ export function TabsPanel({ isOpen, onOpenChange, onTabItemClick }: TabsPanelPro
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7 rounded-full flex-shrink-0 opacity-50 group-hover:opacity-100"
-                                onClick={() => removeTab(item.id)}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    removeTab(item.id);
+                                }}
                             >
                                 <X className="h-4 w-4"/>
                             </Button>
@@ -125,5 +149,20 @@ export function TabsPanel({ isOpen, onOpenChange, onTabItemClick }: TabsPanelPro
         )}
       </SheetContent>
     </Sheet>
+    <AlertDialog open={!!itemToDelete} onOpenChange={(open) => !open && setItemToDelete(null)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Sekmeyi Kapat</AlertDialogTitle>
+            <AlertDialogDescription>
+                "{itemToDelete?.title}" sekmesini kapatmak istediğinizden emin misiniz?
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setItemToDelete(null)}>İptal</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmDeleteItem}>Kapat</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

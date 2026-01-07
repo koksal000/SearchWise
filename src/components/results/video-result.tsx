@@ -7,10 +7,11 @@ import { PlayCircle, Video as VideoIcon } from "lucide-react";
 
 type VideoResultProps = {
   item: VideoSearchResultItem;
-  onResultClick: (url: string, title: string) => void;
+  onVideoResultClick: (item: VideoSearchResultItem) => void;
 };
 
-function isValidHttpUrl(string: string) {
+function isValidHttpUrl(string: string | undefined) {
+  if (!string) return false;
   let url;
   try {
     url = new URL(string);
@@ -20,25 +21,16 @@ function isValidHttpUrl(string: string) {
   return url.protocol === "http:" || url.protocol === "https:";
 }
 
-export function VideoResult({ item, onResultClick }: VideoResultProps) {
+export function VideoResult({ item, onVideoResultClick }: VideoResultProps) {
   let imageUrl = item.coverImageUrl || item.pagemap?.cse_thumbnail?.[0]?.src;
   
   if (imageUrl && !isValidHttpUrl(imageUrl)) {
     imageUrl = undefined;
   }
 
-  // A direct link to an MP4 or similar is a video, otherwise it's a webpage with a video.
-  const isDirectVideoLink = item.videoUrl?.match(/\.(mp4|webm|ogg)$/);
-
-  const handleClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const urlToOpen = isDirectVideoLink ? item.videoUrl! : item.link;
-    onResultClick(urlToOpen, item.title);
-  };
-
   return (
     <div className="w-full">
-      <a href={item.link} onClick={handleClick} className="group">
+      <button onClick={() => onVideoResultClick(item)} className="group w-full text-left">
         <Card className="overflow-hidden transition-all duration-300 group-hover:shadow-xl group-hover:-translate-y-1">
             <CardContent className="p-0">
               <div className="aspect-video relative w-full bg-muted flex items-center justify-center">
@@ -63,7 +55,7 @@ export function VideoResult({ item, onResultClick }: VideoResultProps) {
               </div>
             </CardContent>
         </Card>
-      </a>
+      </button>
     </div>
   );
 }

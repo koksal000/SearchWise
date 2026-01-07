@@ -78,3 +78,11 @@ export type TabItem = {
   favicon?: string;
   screenshot?: string; // a data URL
 };
+
+export type MediaViewerItem = {
+    type: 'image' | 'video';
+    title: string;
+    sourceUrl: string;
+    mediaUrl?: string;
+    embedUrl?: string;
+}

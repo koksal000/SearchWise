@@ -1,7 +1,7 @@
 'use server';
 
 import { canBeIframed } from '@/ai/flows/can-be-iframed';
-import { extractScrapedResults, extractVideoData } from '@/lib/scraping-service';
+import { extractScrapedResults, extractVideoData, extractFullResolutionImage } from '@/lib/scraping-service';
 import { SearchResults, ImageSearchResults, VideoSearchResultItem, SearchResultItem, SearchType, ImageSearchResultItemImage } from '@/lib/types';
 
 const API_KEY = process.env.GOOGLE_API_KEY;
@@ -186,8 +186,7 @@ export async function searchNews({ query, page, safe }: SearchParams): Promise<S
 
 
 export async function searchVideos({ query, page, safe }: SearchParams): Promise<{ items: VideoSearchResultItem[] } & Omit<SearchResults, 'items'> | { error:string }> {
-  // Video scraping is more reliable than the standard API for getting direct video links.
-  // So we prioritize scraping for videos.
+  // Video scraping is more reliable, so we prioritize scraping for videos.
   const searchResult = await fetchWithScraping(`${query}`, 'videos', safe, page);
   
   if ('error' in searchResult) {
@@ -200,7 +199,6 @@ export async function searchVideos({ query, page, safe }: SearchParams): Promise
 
   const videoDataPromises = searchResult.items.map(async (item: SearchResultItem): Promise<VideoSearchResultItem> => {
     try {
-      // Use the same proxy mechanism to fetch the content of the video's page
       const pageContentResult = await fetchPageContentFromProxy(item.link);
       if ('error' in pageContentResult) {
         return item; // Return the item without extra data if page fetch fails
@@ -224,18 +222,20 @@ export async function searchVideos({ query, page, safe }: SearchParams): Promise
   return { ...searchResult, items: itemsWithVideoData };
 }
 
-export async function fetchPageContent(url: string): Promise<{content: string} | {error: string}> {
+export async function fetchPageContent(url: string, forceProxy: boolean = false): Promise<{content: string, viewMode: 'direct' | 'proxied'} | {error: string}> {
     try {
-        const { canBeIframed: isIframable } = await canBeIframed({ url });
-        if (isIframable) {
-            return { content: '' }; 
+        if (!forceProxy) {
+            const { canBeIframed: isIframable } = await canBeIframed({ url });
+            if (isIframable) {
+                return { content: '', viewMode: 'direct' }; 
+            }
         }
 
         const pageContentResult = await fetchPageContentFromProxy(url);
         if ('error' in pageContentResult) {
             return { error: pageContentResult.error };
         }
-        return { content: pageContentResult.content };
+        return { content: pageContentResult.content, viewMode: 'proxied' };
 
     } catch (error) {
         console.error('Fetch Page Content Error:', error);
@@ -243,5 +243,22 @@ export async function fetchPageContent(url: string): Promise<{content: string} |
             return { error: error.message };
         }
         return { error: 'Unknown error fetching page content.' };
+    }
+}
+
+export async function getFullResolutionImage(url: string): Promise<{ imageUrl: string } | { error: string }> {
+    try {
+        const pageContentResult = await fetchPageContentFromProxy(url);
+        if ('error' in pageContentResult) {
+            return { error: pageContentResult.error };
+        }
+        const imageUrl = extractFullResolutionImage(pageContentResult.content);
+        if (!imageUrl) {
+            return { error: "Couldn't find a full-resolution image on the page." };
+        }
+        return { imageUrl };
+    } catch (error) {
+        const message = error instanceof Error ? error.message : "An unknown error occurred.";
+        return { error: message };
     }
 }
