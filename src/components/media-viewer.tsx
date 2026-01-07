@@ -4,6 +4,7 @@ import { X, Download, ExternalLink } from 'lucide-react';
 import { Button } from './ui/button';
 import { MediaViewerItem } from '@/lib/types';
 import Image from 'next/image';
+import { useToast } from '@/hooks/use-toast';
 
 type MediaViewerProps = {
   item: MediaViewerItem | null;
@@ -11,36 +12,42 @@ type MediaViewerProps = {
 };
 
 export function MediaViewer({ item, onClose }: MediaViewerProps) {
+  const { toast } = useToast();
+
   if (!item) return null;
 
-  const handleDownload = async () => {
-    if (!item.mediaUrl) return;
+  const handleDownload = () => {
+    if (!item.mediaUrl) {
+      toast({
+        variant: "destructive",
+        title: "İndirme Hatası",
+        description: "İndirilecek medya URL'si bulunamadı.",
+      });
+      return;
+    }
+
     try {
-      // Use fetch to get the data as a blob
-      const response = await fetch(item.mediaUrl);
-      if (!response.ok) throw new Error('Network response was not ok.');
-      const blob = await response.blob();
-      
-      // Create a temporary URL for the blob
-      const url = window.URL.createObjectURL(blob);
-      
-      // Create a temporary anchor element and trigger the download
+      // This method avoids CORS issues with fetch by using the browser's native download capabilities.
       const a = document.createElement('a');
       a.style.display = 'none';
-      a.href = url;
-      // Get the filename from the URL
-      const filename = item.mediaUrl.split('/').pop() || 'download';
+      a.href = item.mediaUrl;
+      
+      // Suggest a filename to the browser.
+      const filename = item.mediaUrl.split('/').pop()?.split('?')[0] || 'download';
       a.download = filename;
+      
       document.body.appendChild(a);
       a.click();
-      
-      // Clean up
-      window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
     } catch (error) {
       console.error("Download failed:", error);
-      // As a fallback for CORS or other issues, open the media in a new tab
+      toast({
+        variant: "destructive",
+        title: "İndirme Başlatılamadı",
+        description: "Bilinmeyen bir hata oluştu. Lütfen tekrar deneyin.",
+      });
+      // As a fallback, open the media in a new tab, which might allow the user to save it.
       window.open(item.mediaUrl, '_blank');
     }
   };
