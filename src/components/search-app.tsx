@@ -258,7 +258,7 @@ export function SearchApp() {
         title: item.title,
         sourceUrl: item.link,
         mediaUrl: item.videoUrl, // Direct video URL from API
-        embedUrl: item.pagemap?.videoobject?.[0].embedurl, // Fallback to embed URL
+        embedUrl: item.embedUrl, // Fallback to embed URL
     });
   }
 

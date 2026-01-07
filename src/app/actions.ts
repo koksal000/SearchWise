@@ -232,6 +232,7 @@ export async function searchVideos({ query, page, safe }: SearchParams): Promise
             return {
                 ...item,
                 videoUrl: videoObject.contenturl,
+                embedUrl: videoObject.embedurl,
                 coverImageUrl: videoObject.thumbnailurl,
                 duration: videoObject.duration,
                 uploadDate: videoObject.uploaddate,
