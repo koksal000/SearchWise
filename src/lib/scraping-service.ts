@@ -51,20 +51,26 @@ export function extractScrapedResults(htmlContent: string, searchType: SearchTyp
         return newsResults;
     }
 
+    // --- GENERAL WEB SEARCH ---
     const webResults: ScrapedResult[] = [];
-    const resultElements = root.querySelectorAll('div.MjjY7, div.Gx5Zad');
+    // The general container for each search result is now often just 'div.g'
+    const resultElements = root.querySelectorAll('div.g');
 
     for (const el of resultElements) {
+        // Find the anchor tag which contains the link and title
         const linkEl = el.querySelector('a');
-        const link = linkEl?.getAttribute('href');
+        if (!linkEl) continue;
 
-        const titleEl = el.querySelector('h3');
+        const link = linkEl.getAttribute('href');
+        const titleEl = linkEl.querySelector('h3');
         const title = titleEl?.innerText;
 
-        const snippetEl = el.querySelector('div.VwiC3b, .s3v9rd');
+        // The snippet is often in a div with a specific class structure
+        const snippetEl = el.querySelector('.VwiC3b');
         const snippet = snippetEl?.innerText;
 
         if (link && title && snippet && !link.startsWith('/search') && !link.startsWith('#')) {
+            // Find a potential thumbnail within the result block
             const imageEl = el.querySelector('img');
             const imageUrl = imageEl?.getAttribute('src');
             webResults.push({ title, link, snippet, imageUrl });
