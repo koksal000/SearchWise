@@ -169,11 +169,7 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
   };
 
   const switchMode = () => {
-    if (viewMode === 'direct') {
-        reload(true); // Force proxy mode
-    } else {
-        reload(false); // Try direct mode again
-    }
+    reload(viewMode === 'direct');
   }
 
   const goBack = () => {
