@@ -96,7 +96,7 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
             throw new Error(result.error);
         }
 
-        if (result.viewMode === 'proxied') { // Proxied mode
+        if (result.viewMode === 'proxied') {
             const baseTag = `<base href="${new URL(url).origin}">`;
             const navigationInterceptorScript = `
                 <script>
@@ -116,8 +116,10 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
               `;
             setSrcDocContent(baseTag + navigationInterceptorScript + result.content);
             setViewMode('proxied');
-        } else { // Direct mode
+            finishLoading();
+        } else { // direct
             setViewMode('direct');
+            // finishLoading will be called by the iframe's onLoad event
         }
 
     } catch (error) {
@@ -131,14 +133,9 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
       } else {
           onClose();
       }
-    } finally {
-      // Direct modda iframe'in kendi yükleme göstergesi olduğundan, 
-      // sadece proxied modda manuel olarak yüklemeyi bitiriyoruz.
-      if (viewMode !== 'direct' || forceProxy) {
-          finishLoading();
-      }
+      finishLoading();
     }
-  }, [toast, onClose, historyIndex, canGoBack, startLoading, finishLoading, viewMode]);
+  }, [toast, onClose, historyIndex, canGoBack, startLoading, finishLoading]);
 
   useEffect(() => {
     if (tab && tab.url !== currentUrl) {
@@ -147,7 +144,7 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
         loadContent(tab.url, 'history');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
+  }, [tab, loadContent]);
   
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -171,7 +168,8 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
   };
 
   const switchMode = () => {
-    reload(viewMode !== 'proxied');
+    const isForcingProxy = viewMode !== 'proxied';
+    reload(isForcingProxy);
   }
 
   const goBack = () => {
@@ -211,7 +209,7 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
                     {viewMode === 'proxied' ? (
                         <Popover>
                         <PopoverTrigger asChild>
-                            <button className="flex items-center" aria-label="Simplified mode info">
+                            <button className="flex items-center" aria-label="Basitleştirilmiş mod bilgisi">
                             <ShieldAlert className="h-4 w-4 text-amber-500" />
                             </button>
                         </PopoverTrigger>
@@ -253,7 +251,7 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
                 </div>
                 
                 <div className='flex items-center gap-1'>
-                    <Button variant="ghost" size="icon" className='h-8 w-8' onClick={switchMode} title="Görünüm Modunu Değiştir">
+                    <Button variant="ghost" size="icon" className='h-8 w-8' onClick={switchMode} title="Görünüm Modunu Değiştir" disabled={isLoading}>
                         <Replace className="h-5 w-5" />
                     </Button>
                     <Button variant="ghost" size="icon" className='h-8 w-8' onClick={() => window.open(currentUrl, '_blank')} title="Yeni sekmede aç">
@@ -265,7 +263,7 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
           {isLoading && <Progress value={progress} className="absolute bottom-0 h-0.5 w-full" />}
         </header>
         <div className="flex-grow relative bg-muted">
-          {isLoading && viewMode === 'loading' && (
+          {isLoading && viewMode !== 'proxied' && (
               <div className="absolute inset-0 flex items-center justify-center bg-background z-10">
                   <Loader2 className="h-8 w-8 animate-spin text-primary"/>
               </div>
