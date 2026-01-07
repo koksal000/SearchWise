@@ -136,7 +136,7 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
           finishLoading();
       }
     }
-  }, [toast, onClose, historyIndex, canGoBack, viewMode, startLoading, finishLoading]);
+  }, [toast, onClose, historyIndex, canGoBack, startLoading, finishLoading]);
 
   useEffect(() => {
     if (tab && tab.url !== currentUrl) {
@@ -169,7 +169,7 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
   };
 
   const switchMode = () => {
-    reload(viewMode === 'direct');
+    reload(viewMode !== 'proxied');
   }
 
   const goBack = () => {
@@ -299,3 +299,5 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
     </>
   );
 }
+
+    
