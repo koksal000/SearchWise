@@ -3,7 +3,7 @@
 import { SearchType } from '@/lib/types';
 import { Button } from './ui/button';
 import { Image as ImageIcon, Video, Newspaper, Globe, FileVideo } from 'lucide-react';
-import { ScrollArea } from './ui/scroll-area';
+import { ScrollArea, ScrollBar } from './ui/scroll-area';
 
 type FilterPillsProps = {
   activeFilter: SearchType;
@@ -21,7 +21,7 @@ const filters: { id: SearchType; label: string; icon: React.ComponentType<{ clas
 export function FilterPills({ activeFilter, onFilterChange }: FilterPillsProps) {
   return (
     <div className="w-full border-b">
-      <ScrollArea className="whitespace-nowrap">
+      <ScrollArea className="w-full whitespace-nowrap">
         <div className="flex w-max items-center gap-1 p-3 sm:justify-start">
           {filters.map((filter) => (
             <Button
@@ -36,6 +36,7 @@ export function FilterPills({ activeFilter, onFilterChange }: FilterPillsProps) 
             </Button>
           ))}
         </div>
+        <ScrollBar orientation="horizontal" className="invisible" />
       </ScrollArea>
     </div>
   );
