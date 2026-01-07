@@ -4,6 +4,7 @@ import { VideoSearchResultItem } from "@/lib/types";
 import Image from 'next/image';
 import { Card, CardContent } from "@/components/ui/card";
 import { PlayCircle, Video as VideoIcon } from "lucide-react";
+import { Badge } from "../ui/badge";
 
 type VideoResultProps = {
   item: VideoSearchResultItem;
@@ -21,12 +22,42 @@ function isValidHttpUrl(string: string | undefined) {
   return url.protocol === "http:" || url.protocol === "https:";
 }
 
+// Function to format ISO 8601 duration to MM:SS
+function formatDuration(isoDuration?: string): string | null {
+    if (!isoDuration) return null;
+  
+    const match = isoDuration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  
+    if (!match) return null;
+  
+    const hours = parseInt(match[1] || '0', 10);
+    const minutes = parseInt(match[2] || '0', 10);
+    const seconds = parseInt(match[3] || '0', 10);
+  
+    const totalSeconds = hours * 3600 + minutes * 60 + seconds;
+  
+    const fmtHours = Math.floor(totalSeconds / 3600);
+    const fmtMinutes = Math.floor((totalSeconds % 3600) / 60);
+    const fmtSeconds = totalSeconds % 60;
+  
+    const paddedSeconds = fmtSeconds.toString().padStart(2, '0');
+    
+    if (fmtHours > 0) {
+      const paddedMinutes = fmtMinutes.toString().padStart(2, '0');
+      return `${fmtHours}:${paddedMinutes}:${paddedSeconds}`;
+    } else {
+      return `${fmtMinutes}:${paddedSeconds}`;
+    }
+}
+
 export function VideoResult({ item, onVideoResultClick }: VideoResultProps) {
   let imageUrl = item.coverImageUrl || item.pagemap?.cse_thumbnail?.[0]?.src;
   
   if (imageUrl && !isValidHttpUrl(imageUrl)) {
     imageUrl = undefined;
   }
+  
+  const duration = formatDuration(item.duration);
 
   return (
     <div className="w-full">
@@ -35,13 +66,18 @@ export function VideoResult({ item, onVideoResultClick }: VideoResultProps) {
             <CardContent className="p-0">
               <div className="aspect-video relative w-full bg-muted flex items-center justify-center">
                 {imageUrl ? (
-                  <Image
-                    src={imageUrl}
-                    alt={item.title}
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                  />
+                  <>
+                    <Image
+                      src={imageUrl}
+                      alt={item.title}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    />
+                    {duration && (
+                        <Badge variant="secondary" className="absolute bottom-2 right-2">{duration}</Badge>
+                    )}
+                  </>
                 ) : (
                   <VideoIcon className="h-16 w-16 text-muted-foreground/50" />
                 )}

@@ -2,7 +2,7 @@
 
 import { canBeIframed } from '@/ai/flows/can-be-iframed';
 import { extractScrapedResults, extractVideoData, extractFullResolutionImage } from '@/lib/scraping-service';
-import { SearchResults, ImageSearchResults, VideoSearchResultItem, SearchResultItem, SearchType, ImageSearchResultItemImage } from '@/lib/types';
+import { SearchResults, ImageSearchResults, VideoSearchResultItem, SearchResultItem, SearchType, ImageSearchResultItemImage, VideoObject } from '@/lib/types';
 
 const API_KEY = process.env.GOOGLE_API_KEY;
 const CX_ID = process.env.GOOGLE_CX_ID;
@@ -206,40 +206,39 @@ export async function searchNews({ query, page, safe }: SearchParams): Promise<S
 
 
 export async function searchVideos({ query, page, safe }: SearchParams): Promise<{ items: VideoSearchResultItem[] } & Omit<SearchResults, 'items'> | { error:string }> {
-  // Video scraping is more reliable, so we prioritize scraping for videos.
-  const searchResult = await fetchWithScraping(`${query} video`, 'videos', safe, page);
-  
-  if ('error' in searchResult) {
-    return searchResult;
-  }
-  
-  if (!searchResult.items) {
-    return { ...searchResult, items: [] };
-  }
+    const params = new URLSearchParams({
+        key: API_KEY!,
+        cx: CX_ID!,
+        q: query,
+        start: ((page - 1) * 10 + 1).toString(),
+        safe,
+        hl: 'en',
+    });
 
-  const videoDataPromises = searchResult.items.map(async (item: SearchResultItem): Promise<VideoSearchResultItem> => {
-    try {
-      const pageContentResult = await fetchPageContentFromProxy(item.link);
-      if ('error' in pageContentResult) {
-        return item; // Return the item without extra data if page fetch fails
-      }
-      const htmlContent = pageContentResult.content;
-      const extractedData = extractVideoData(htmlContent);
-      
-      return {
-        ...item,
-        videoUrl: extractedData.videoUrl,
-        coverImageUrl: extractedData.coverImageUrl,
-      };
-    } catch (e) {
-      console.error(`Failed to process URL ${item.link} for video data:`, e);
-      return item; // Return original item on error
+    const searchResult = await fetchFromApi(params, query, 'videos', safe, page);
+    
+    if ('error' in searchResult) {
+        return searchResult;
     }
-  });
+    
+    if (!searchResult.items) {
+        return { ...searchResult, items: [] };
+    }
 
-  const itemsWithVideoData = await Promise.all(videoDataPromises);
-
-  return { ...searchResult, items: itemsWithVideoData };
+    const videoItems: VideoSearchResultItem[] = searchResult.items
+        .filter((item: SearchResultItem) => item.pagemap?.videoobject?.length > 0)
+        .map((item: SearchResultItem) => {
+            const videoObject: VideoObject = item.pagemap!.videoobject![0];
+            return {
+                ...item,
+                videoUrl: videoObject.contenturl,
+                coverImageUrl: videoObject.thumbnailurl,
+                duration: videoObject.duration,
+                uploadDate: videoObject.uploaddate,
+            }
+        });
+        
+    return { ...searchResult, items: videoItems };
 }
 
 export async function fetchPageContent(url: string, forceProxy: boolean = false): Promise<{content: string, viewMode: 'direct' | 'proxied'} | {error: string}> {
@@ -270,11 +269,13 @@ export async function getFullResolutionImage(url: string): Promise<{ imageUrl: s
     try {
         const pageContentResult = await fetchPageContentFromProxy(url);
         if ('error' in pageContentResult) {
-            return { error: pageContentResult.error };
+            // If proxy fails, maybe the original image link is what we need
+            return { imageUrl: url };
         }
         const imageUrl = extractFullResolutionImage(pageContentResult.content);
         if (!imageUrl) {
-            return { error: "Couldn't find a full-resolution image on the page." };
+             // Fallback to the original URL if extraction fails
+            return { imageUrl: url };
         }
         return { imageUrl };
     } catch (error) {

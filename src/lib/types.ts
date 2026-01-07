@@ -5,6 +5,16 @@ export type ScrapedResult = {
   imageUrl?: string;
 };
 
+export type VideoObject = {
+  name?: string;
+  description?: string;
+  thumbnailurl?: string;
+  contenturl?: string;
+  embedurl?: string;
+  uploaddate?: string;
+  duration?: string; // ISO 8601 format
+};
+
 export type SearchResultItem = {
   title: string;
   link: string;
@@ -13,6 +23,7 @@ export type SearchResultItem = {
   pagemap?: {
     cse_thumbnail?: { src: string }[];
     metatags?: { [key: string]: string }[];
+    videoobject?: VideoObject[];
   };
 };
 
@@ -33,6 +44,8 @@ export type ImageSearchResultItem = {
 export type VideoSearchResultItem = SearchResultItem & {
   videoUrl?: string;
   coverImageUrl?: string;
+  duration?: string;
+  uploadDate?: string;
 }
 
 export type SearchResults = {

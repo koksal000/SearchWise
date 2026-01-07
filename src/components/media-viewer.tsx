@@ -13,34 +13,38 @@ type MediaViewerProps = {
 export function MediaViewer({ item, onClose }: MediaViewerProps) {
   if (!item) return null;
 
+  // Use a proxy for downloading to avoid CORS issues if possible
   const handleDownload = async () => {
     if (!item.mediaUrl) return;
     try {
-      // Use fetch to get the blob
-      const response = await fetch(item.mediaUrl);
-      const blob = await response.blob();
-      
-      // Create a temporary link to trigger the download
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-
-      const fileName = item.mediaUrl.split('/').pop() || item.title;
-      a.download = fileName;
-      
-      document.body.appendChild(a);
-      a.click();
-      
-      // Clean up
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      // For cross-origin images, we can't read the blob directly without server-side help (proxy)
+      // So, the simplest reliable method is to open it in a new tab and let the browser handle it.
+      // The user can then right-click and "Save As...".
+      window.open(item.mediaUrl, '_blank');
     } catch (error) {
       console.error("Download failed:", error);
-      // As a fallback, open the media in a new tab, which might trigger a download or allow saving
+      // As a fallback, open the media in a new tab
       window.open(item.mediaUrl, '_blank');
     }
   };
+  
+  const getEmbedUrl = (item: MediaViewerItem) => {
+    if (item.type !== 'video') return undefined;
+    if (item.embedUrl) return item.embedUrl;
+    
+    // Create embed URLs for common video platforms
+    const url = new URL(item.sourceUrl);
+    if (url.hostname.includes('youtube.com') || url.hostname.includes('youtu.be')) {
+        const videoId = url.searchParams.get('v') || url.pathname.split('/').pop();
+        if (videoId) return `https://www.youtube.com/embed/${videoId}`;
+    }
+    if (url.hostname.includes('vimeo.com')) {
+        const videoId = url.pathname.split('/').pop();
+        if (videoId) return `https://player.vimeo.com/video/${videoId}`;
+    }
+
+    return item.sourceUrl; // Fallback to source URL for other cases
+  }
 
   return (
     <div 
@@ -78,13 +82,13 @@ export function MediaViewer({ item, onClose }: MediaViewerProps) {
         {item.type === 'video' && (
             item.mediaUrl ? (
                 <video src={item.mediaUrl} controls autoPlay className="max-w-full max-h-full rounded-lg" />
-            ) : item.embedUrl ? (
-                <iframe src={item.embedUrl} title={item.title} className="w-full h-full bg-black border-0 rounded-lg" allow="autoplay; encrypted-media" allowFullScreen />
-            ) : <p className="text-white">Video içeriği bulunamadı.</p>
+            ) : (
+                <iframe src={getEmbedUrl(item)} title={item.title} className="w-full h-full bg-black border-0 rounded-lg aspect-video" allow="autoplay; encrypted-media" allowFullScreen />
+            )
         )}
         {item.type === 'image' && item.mediaUrl && (
             <div className="relative w-full h-full">
-                <Image src={item.mediaUrl} alt={item.title} layout="fill" objectFit="contain" />
+                <Image src={item.mediaUrl} alt={item.title} layout="fill" objectFit="contain" unoptimized />
             </div>
         )}
       </main>

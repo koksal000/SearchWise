@@ -257,29 +257,36 @@ export function SearchApp() {
         type: 'video',
         title: item.title,
         sourceUrl: item.link,
-        mediaUrl: item.videoUrl, // Direct video URL if available
-        embedUrl: !item.videoUrl ? item.link : undefined, // Fallback to embedding page
+        mediaUrl: item.videoUrl, // Direct video URL from API
+        embedUrl: item.pagemap?.videoobject?.[0].embedurl, // Fallback to embed URL
     });
   }
 
   const handleImageResultClick = async (item: ImageSearchResultItem) => {
     setIsMediaLoading(true);
+    // For GIFs, the thumbnail link is often the animated GIF itself.
+    // For other images, we'll try to fetch a higher resolution one.
+    const isGif = item.image.thumbnailLink.endsWith('.gif') || item.link.endsWith('.gif');
+    const initialMediaUrl = isGif ? item.link : item.image.thumbnailLink;
+
     setMediaViewerItem({
         type: 'image',
         title: item.title,
         sourceUrl: item.link,
-        mediaUrl: item.image.thumbnailLink, // Show thumbnail initially
+        mediaUrl: initialMediaUrl,
     });
 
-    const result = await getFullResolutionImage(item.link);
-    if ('imageUrl' in result) {
-        setMediaViewerItem(prev => prev ? { ...prev, mediaUrl: result.imageUrl } : null);
-    } else {
-        toast({
-            variant: "destructive",
-            title: "Tam Çözünürlük Yüklenemedi",
-            description: result.error,
-        });
+    if (!isGif) {
+        const result = await getFullResolutionImage(item.link);
+        if ('imageUrl' in result) {
+            setMediaViewerItem(prev => prev ? { ...prev, mediaUrl: result.imageUrl } : null);
+        } else {
+            toast({
+                variant: "destructive",
+                title: "Tam Çözünürlük Yüklenemedi",
+                description: result.error,
+            });
+        }
     }
     setIsMediaLoading(false);
   }

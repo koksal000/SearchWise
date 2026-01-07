@@ -7,9 +7,34 @@ export function extractScrapedResults(htmlContent: string, searchType: SearchTyp
 
     if (searchType === SearchType.IMAGES || searchType === SearchType.GIF) {
         const imageResults: ScrapedResult[] = [];
-        const imageElements = root.querySelectorAll('div[data-ri]');
+        // Updated selector for image results
+        const imageElements = root.querySelectorAll('div.isv-r'); 
         
         for (const el of imageElements) {
+            const linkEl = el.querySelector('a');
+            if (!linkEl) continue;
+
+            const pageLink = linkEl.getAttribute('href');
+            if (!pageLink) continue;
+            
+            const imgEl = el.querySelector('img');
+            const imageUrl = imgEl?.getAttribute('data-src') || imgEl?.getAttribute('src');
+            if (!imageUrl) continue;
+
+            const titleEl = el.querySelector('.bytUYc');
+            const title = titleEl?.innerText || 'Görsel Sonucu';
+            
+            const snippetEl = el.querySelector('.V_iG3b');
+            const snippet = snippetEl?.innerText || new URL(`https://google.com${pageLink}`).hostname;
+
+
+            imageResults.push({ title, link: `https://google.com${pageLink}`, snippet, imageUrl });
+        }
+        if (imageResults.length > 0) return imageResults;
+
+        // Fallback for older structure
+        const oldImageElements = root.querySelectorAll('div[data-ri]');
+        for (const el of oldImageElements) {
             const linkEl = el.querySelector('a');
             if (!linkEl) continue;
 
@@ -51,29 +76,28 @@ export function extractScrapedResults(htmlContent: string, searchType: SearchTyp
         return newsResults;
     }
 
-    // --- GENERAL WEB SEARCH ---
+    // --- GENERAL WEB SEARCH (UPDATED) ---
     const webResults: ScrapedResult[] = [];
-    // The general container for each search result is now often just 'div.g'
     const resultElements = root.querySelectorAll('div.g');
 
     for (const el of resultElements) {
-        // Find the anchor tag which contains the link and title
         const linkEl = el.querySelector('a');
         if (!linkEl) continue;
 
-        const link = linkEl.getAttribute('href');
+        const href = linkEl.getAttribute('href');
+        if (!href || href.startsWith('/search?q=') || href.includes('google.com/search')) continue;
+
         const titleEl = linkEl.querySelector('h3');
         const title = titleEl?.innerText;
-
-        // The snippet is often in a div with a specific class structure
-        const snippetEl = el.querySelector('.VwiC3b');
+        
+        // Updated snippet selector
+        const snippetEl = el.querySelector('.VwiC3b, .AP7Wnd');
         const snippet = snippetEl?.innerText;
 
-        if (link && title && snippet && !link.startsWith('/search') && !link.startsWith('#')) {
-            // Find a potential thumbnail within the result block
+        if (href && title && snippet) {
             const imageEl = el.querySelector('img');
             const imageUrl = imageEl?.getAttribute('src');
-            webResults.push({ title, link, snippet, imageUrl });
+            webResults.push({ title, link: href, snippet, imageUrl });
         }
     }
     
@@ -131,6 +155,17 @@ export function extractFullResolutionImage(htmlContent: string): string | null {
     const ogImage = root.querySelector('meta[property="og:image"]');
     if (ogImage) {
         return ogImage.getAttribute('content');
+    }
+    const ogVideo = root.querySelector('meta[property="og:video"]');
+    if (ogVideo) {
+        return ogVideo.getAttribute('content');
+    }
+    
+    // Specific selector for Reddit galleries
+    const redditGalleryImage = root.querySelector('a[href^="https://i.redd.it/"] > img');
+    if(redditGalleryImage) {
+        const link = redditGalleryImage.parentNode.getAttribute('href');
+        if(link) return link;
     }
 
     // Find all images and pick the largest one based on dimensions or heuristics
