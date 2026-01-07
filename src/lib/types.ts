@@ -3,6 +3,7 @@ export type ScrapedResult = {
   link: string;
   snippet: string;
   imageUrl?: string;
+  duration?: string;
 };
 
 export type VideoObject = {
@@ -43,6 +44,7 @@ export type ImageSearchResultItem = {
 
 export type VideoSearchResultItem = SearchResultItem & {
   videoUrl?: string;
+  embedUrl?: string;
   coverImageUrl?: string;
   duration?: string;
   uploadDate?: string;

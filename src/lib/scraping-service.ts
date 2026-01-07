@@ -7,64 +7,45 @@ export function extractScrapedResults(htmlContent: string, searchType: SearchTyp
 
     if (searchType === SearchType.IMAGES || searchType === SearchType.GIF) {
         const imageResults: ScrapedResult[] = [];
-        // Updated selector for image results
-        const imageElements = root.querySelectorAll('div.isv-r'); 
+        // Google often changes classes. This selector is more robust.
+        // It looks for a div that contains a link which in turn contains an img.
+        const imageElements = root.querySelectorAll('div:has(a > img)'); 
         
         for (const el of imageElements) {
+            // This is a rough filter to avoid picking up UI elements.
+            if (el.classList.length > 5 || el.id) continue;
+            
             const linkEl = el.querySelector('a');
             if (!linkEl) continue;
 
             const pageLink = linkEl.getAttribute('href');
-            if (!pageLink) continue;
-            
+            if (!pageLink || !pageLink.startsWith('/url?q=')) continue;
+            const decodedLink = decodeURIComponent(pageLink.split('&')[0].replace('/url?q=', ''));
+
             const imgEl = el.querySelector('img');
             const imageUrl = imgEl?.getAttribute('data-src') || imgEl?.getAttribute('src');
             if (!imageUrl) continue;
 
-            const titleEl = el.querySelector('.bytUYc');
-            const title = titleEl?.innerText || 'Görsel Sonucu';
+            const titleEl = el.nextElementSibling?.querySelector('a');
+            const title = titleEl?.innerText || imgEl?.getAttribute('alt') || 'Görsel Sonucu';
             
-            const snippetEl = el.querySelector('.V_iG3b');
-            const snippet = snippetEl?.innerText || new URL(`https://google.com${pageLink}`).hostname;
+            const snippet = new URL(decodedLink).hostname;
 
-
-            imageResults.push({ title, link: `https://google.com${pageLink}`, snippet, imageUrl });
-        }
-        if (imageResults.length > 0) return imageResults;
-
-        // Fallback for older structure
-        const oldImageElements = root.querySelectorAll('div[data-ri]');
-        for (const el of oldImageElements) {
-            const linkEl = el.querySelector('a');
-            if (!linkEl) continue;
-
-            const pageLink = linkEl.getAttribute('href');
-            if (!pageLink) continue;
-            
-            const imgEl = el.querySelector('img');
-            const imageUrl = imgEl?.getAttribute('data-src') || imgEl?.getAttribute('src');
-            if (!imageUrl) continue;
-
-            const title = imgEl.getAttribute('alt') || 'Görsel Sonucu';
-            
-            const snippetEl = linkEl.nextElementSibling;
-            const snippet = snippetEl?.innerText || new URL(`https://google.com${pageLink}`).hostname;
-
-            imageResults.push({ title, link: `https://google.com${pageLink}`, snippet, imageUrl });
+            imageResults.push({ title, link: decodedLink, snippet, imageUrl });
         }
         return imageResults;
     }
 
     if (searchType === SearchType.NEWS) {
         const newsResults: ScrapedResult[] = [];
-        const newsElements = root.querySelectorAll('div.SoaBEf');
+        const newsElements = root.querySelectorAll('div.SoaBEf, div.n0jPhd');
 
         for (const el of newsElements) {
             const linkEl = el.querySelector('a');
             const link = linkEl?.getAttribute('href');
             const titleEl = el.querySelector('div[role="heading"]');
             const title = titleEl?.innerText;
-            const snippetEl = el.querySelector('div.GI74Re');
+            const snippetEl = el.querySelector('.GI74Re, .MgUUmf');
             const snippet = snippetEl?.innerText;
             const imageEl = el.querySelector('img');
             const imageUrl = imageEl?.getAttribute('src');
@@ -75,6 +56,36 @@ export function extractScrapedResults(htmlContent: string, searchType: SearchTyp
         }
         return newsResults;
     }
+
+    if (searchType === SearchType.VIDEOS) {
+        const videoResults: ScrapedResult[] = [];
+        // This is a more modern and stable selector for video results blocks
+        const videoElements = root.querySelectorAll('div.g');
+    
+        for (const el of videoElements) {
+            const linkEl = el.querySelector('a');
+            const href = linkEl?.getAttribute('href');
+            if (!href || !href.startsWith('https://')) continue;
+    
+            const titleEl = el.querySelector('h3');
+            const title = titleEl?.innerText;
+    
+            const snippetEl = el.querySelector('.Uroaid');
+            const snippet = snippetEl?.innerText;
+    
+            const imageEl = el.querySelector('img');
+            const imageUrl = imageEl?.getAttribute('src');
+            
+            const durationEl = el.querySelector('.fG8Fp');
+            const duration = durationEl?.innerText;
+    
+            if (title && snippet) {
+                videoResults.push({ title, link: href, snippet, imageUrl, duration });
+            }
+        }
+        return videoResults;
+    }
+
 
     // --- GENERAL WEB SEARCH (UPDATED) ---
     const webResults: ScrapedResult[] = [];

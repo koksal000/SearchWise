@@ -13,37 +13,68 @@ type MediaViewerProps = {
 export function MediaViewer({ item, onClose }: MediaViewerProps) {
   if (!item) return null;
 
-  // Use a proxy for downloading to avoid CORS issues if possible
   const handleDownload = async () => {
     if (!item.mediaUrl) return;
     try {
-      // For cross-origin images, we can't read the blob directly without server-side help (proxy)
-      // So, the simplest reliable method is to open it in a new tab and let the browser handle it.
-      // The user can then right-click and "Save As...".
-      window.open(item.mediaUrl, '_blank');
+      // Use fetch to get the data as a blob
+      const response = await fetch(item.mediaUrl);
+      if (!response.ok) throw new Error('Network response was not ok.');
+      const blob = await response.blob();
+      
+      // Create a temporary URL for the blob
+      const url = window.URL.createObjectURL(blob);
+      
+      // Create a temporary anchor element and trigger the download
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      // Get the filename from the URL
+      const filename = item.mediaUrl.split('/').pop() || 'download';
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      
+      // Clean up
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
     } catch (error) {
       console.error("Download failed:", error);
-      // As a fallback, open the media in a new tab
+      // As a fallback for CORS or other issues, open the media in a new tab
       window.open(item.mediaUrl, '_blank');
     }
   };
   
   const getEmbedUrl = (item: MediaViewerItem) => {
     if (item.type !== 'video') return undefined;
-    if (item.embedUrl) return item.embedUrl;
     
-    // Create embed URLs for common video platforms
-    const url = new URL(item.sourceUrl);
-    if (url.hostname.includes('youtube.com') || url.hostname.includes('youtu.be')) {
-        const videoId = url.searchParams.get('v') || url.pathname.split('/').pop();
-        if (videoId) return `https://www.youtube.com/embed/${videoId}`;
+    // If we have an embed URL from the API, prioritize it.
+    if (item.embedUrl) {
+        // Ensure the URL has a scheme.
+        if (item.embedUrl.startsWith('//')) {
+            return `https:${item.embedUrl}`;
+        }
+        return item.embedUrl;
     }
-    if (url.hostname.includes('vimeo.com')) {
-        const videoId = url.pathname.split('/').pop();
-        if (videoId) return `https://player.vimeo.com/video/${videoId}`;
+    
+    // Otherwise, try to create embed URLs for common video platforms
+    try {
+        const url = new URL(item.sourceUrl);
+        if (url.hostname.includes('youtube.com') || url.hostname.includes('youtu.be')) {
+            const videoId = url.searchParams.get('v') || url.pathname.split('/').pop();
+            if (videoId) return `https://www.youtube.com/embed/${videoId}`;
+        }
+        if (url.hostname.includes('vimeo.com')) {
+            const videoId = url.pathname.split('/').pop();
+            if (videoId) return `https://player.vimeo.com/video/${videoId}`;
+        }
+    } catch(e) {
+        console.error("Invalid source URL for embedding:", item.sourceUrl);
     }
 
-    return item.sourceUrl; // Fallback to source URL for other cases
+
+    // Fallback to the direct media URL if it exists, otherwise source URL.
+    return item.mediaUrl || item.sourceUrl; 
   }
 
   return (
@@ -79,18 +110,18 @@ export function MediaViewer({ item, onClose }: MediaViewerProps) {
       </header>
 
       <main className="flex-grow flex items-center justify-center" onClick={e => e.stopPropagation()}>
-        {item.type === 'video' && (
+        {item.type === 'video' ? (
             item.mediaUrl ? (
                 <video src={item.mediaUrl} controls autoPlay className="max-w-full max-h-full rounded-lg" />
             ) : (
-                <iframe src={getEmbedUrl(item)} title={item.title} className="w-full h-full bg-black border-0 rounded-lg aspect-video" allow="autoplay; encrypted-media" allowFullScreen />
+                <iframe src={getEmbedUrl(item)} title={item.title} className="w-full h-full bg-black border-0 rounded-lg aspect-video" allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen />
             )
-        )}
-        {item.type === 'image' && item.mediaUrl && (
+        ) : null}
+        {item.type === 'image' && item.mediaUrl ? (
             <div className="relative w-full h-full">
                 <Image src={item.mediaUrl} alt={item.title} layout="fill" objectFit="contain" unoptimized />
             </div>
-        )}
+        ) : null}
       </main>
     </div>
   );

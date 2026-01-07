@@ -264,9 +264,9 @@ export function SearchApp() {
 
   const handleImageResultClick = async (item: ImageSearchResultItem) => {
     setIsMediaLoading(true);
-    // For GIFs, the thumbnail link is often the animated GIF itself.
-    // For other images, we'll try to fetch a higher resolution one.
-    const isGif = item.image.thumbnailLink.endsWith('.gif') || item.link.endsWith('.gif');
+    // For GIFs, use the direct link as it's often the animated GIF itself.
+    // For other images, use the thumbnail initially.
+    const isGif = activeFilter === SearchType.GIF;
     const initialMediaUrl = isGif ? item.link : item.image.thumbnailLink;
 
     setMediaViewerItem({
@@ -276,6 +276,7 @@ export function SearchApp() {
         mediaUrl: initialMediaUrl,
     });
 
+    // If it's not a GIF, try to fetch a higher resolution version.
     if (!isGif) {
         const result = await getFullResolutionImage(item.link);
         if ('imageUrl' in result) {

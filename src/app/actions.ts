@@ -36,7 +36,7 @@ async function fetchPageContentFromProxy(url: string): Promise<{ content: string
 }
 
 
-async function fetchWithScraping(query: string, searchType: SearchType, safe: 'active' | 'off', page: number): Promise<SearchResults | ImageSearchResults | { error: string }> {
+async function fetchWithScraping(query: string, searchType: SearchType, safe: 'active' | 'off', page: number): Promise<SearchResults | ImageSearchResults | { items: VideoSearchResultItem[] } & Omit<SearchResults, 'items'> | { error: string }> {
     console.log(`API quota likely exceeded or keys not provided. Falling back to scraping for ${searchType} search.`);
     
     const encodedQuery = encodeURIComponent(query);
@@ -46,19 +46,10 @@ async function fetchWithScraping(query: string, searchType: SearchType, safe: 'a
 
     switch (searchType) {
         case 'gif':
+            url = `https://www.google.com/search?q=${encodedQuery}&tbm=isch&tbs=itp:animated&start=${start}`;
+            break;
         case 'images':
-            let tbm = 'isch';
-            if (searchType === 'gif') {
-                // Google uses a specific parameter for file type in image search
-                url = `https://www.google.com/search?q=${encodedQuery}&tbm=isch&tbs=itp:animated&start=${start}`;
-            } else {
-                 url = `https://www.google.com/search?q=${encodedQuery}&tbm=isch&start=${start}`;
-            }
-             if (safe === 'off') {
-                url += '&safe=off';
-            } else {
-                url += '&safe=active';
-            }
+             url = `https://www.google.com/search?q=${encodedQuery}&tbm=isch&start=${start}`;
             break;
         case 'news':
             url = `https://www.google.com/search?q=${encodedQuery}&tbm=nws&start=${start}`;
@@ -70,6 +61,11 @@ async function fetchWithScraping(query: string, searchType: SearchType, safe: 'a
         default:
             url = `https://www.google.com/search?q=${encodedQuery}&start=${start}`;
             break;
+    }
+     if (safe === 'off') {
+        url += '&safe=off';
+    } else {
+        url += '&safe=active';
     }
 
     try {
@@ -108,6 +104,18 @@ async function fetchWithScraping(query: string, searchType: SearchType, safe: 'a
              }));
              return { searchInformation, items: imageItems };
         }
+
+        if (searchType === 'videos') {
+            const videoItems: VideoSearchResultItem[] = scrapedResults.map(item => ({
+                ...item,
+                displayLink: new URL(item.link).hostname,
+                pagemap: { cse_thumbnail: [{ src: item.imageUrl || '' }] },
+                coverImageUrl: item.imageUrl,
+                duration: item.duration,
+            }));
+            return { searchInformation, items: videoItems };
+        }
+
 
         const items: SearchResultItem[] = scrapedResults.map(item => ({
             ...item,
@@ -206,6 +214,15 @@ export async function searchNews({ query, page, safe }: SearchParams): Promise<S
 
 
 export async function searchVideos({ query, page, safe }: SearchParams): Promise<{ items: VideoSearchResultItem[] } & Omit<SearchResults, 'items'> | { error:string }> {
+    // Unlike other search types, video search via API requires a general search
+    // and then filtering for results that have a `videoobject` in their pagemap.
+    // The `tbm=vid` is not a standard parameter for the Custom Search JSON API.
+    // Therefore, we will rely on our scraping method for dedicated video searches
+    // and use the API as a fallback that filters general results.
+    if (!API_KEY || !CX_ID) {
+      return fetchWithScraping(query, 'videos', safe, page) as Promise<{ items: VideoSearchResultItem[] } & Omit<SearchResults, 'items'> | { error:string }>;
+    }
+
     const params = new URLSearchParams({
         key: API_KEY!,
         cx: CX_ID!,
@@ -215,7 +232,23 @@ export async function searchVideos({ query, page, safe }: SearchParams): Promise
         hl: 'en',
     });
 
-    const searchResult = await fetchFromApi(params, query, 'videos', safe, page);
+    // We can't use fetchFromApi directly because it would call scraping with 'videos', 
+    // which is what we are trying to do here in case of failure.
+    let searchResult;
+    try {
+      const response = await fetch(`${API_URL}?${params.toString()}`);
+      if (!response.ok) {
+         if (response.status === 429) {
+            console.log("Google API quota for video search exceeded. Falling back to scraping.");
+            return fetchWithScraping(query, 'videos', safe, page) as Promise<{ items: VideoSearchResultItem[] } & Omit<SearchResults, 'items'> | { error:string }>;
+         }
+         throw new Error(`API returned status ${response.status}`);
+      }
+      searchResult = await response.json();
+    } catch(e) {
+      console.log("Google API for video search failed. Falling back to scraping.");
+      return fetchWithScraping(query, 'videos', safe, page) as Promise<{ items: VideoSearchResultItem[] } & Omit<SearchResults, 'items'> | { error:string }>;
+    }
     
     if ('error' in searchResult) {
         return searchResult;
@@ -239,6 +272,12 @@ export async function searchVideos({ query, page, safe }: SearchParams): Promise
             }
         });
         
+    // If API returns no video items, it's better to fallback to scraping
+    if (videoItems.length === 0) {
+        console.log("API returned no video results, falling back to scraping.");
+        return fetchWithScraping(query, 'videos', safe, page) as Promise<{ items: VideoSearchResultItem[] } & Omit<SearchResults, 'items'> | { error:string }>;
+    }
+
     return { ...searchResult, items: videoItems };
 }
 
