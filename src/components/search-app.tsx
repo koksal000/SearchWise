@@ -4,11 +4,12 @@ import { useState, useEffect, FormEvent, useRef, useCallback } from 'react';
 import { useSettings } from '@/hooks/use-settings';
 import { useHistory } from '@/hooks/use-history';
 import { useTabs } from '@/hooks/use-tabs';
-import { SearchResultItem, SearchType, ImageSearchResultItem, VideoSearchResultItem } from '@/lib/types';
-import { search, searchImages, searchVideos, searchNews } from '@/app/actions';
+import { SearchResultItem, SearchType, ImageSearchResultItem, VideoSearchResultItem, MediaViewerItem } from '@/lib/types';
+import { search, searchImages, searchVideos, searchNews, getFullResolutionImage } from '@/app/actions';
 import { getImageSearchTerms } from '@/ai/flows/get-image-search-terms';
 import { useToast } from '@/hooks/use-toast';
 import { isValidUrl, normalizeUrl } from '@/lib/url-handler';
+import { Loader2 } from 'lucide-react';
 
 import { Header } from './header';
 import { SearchHome } from './search-home';
@@ -22,6 +23,7 @@ import { WebViewer } from './web-viewer';
 import { ImageSearchDialog } from './image-search-dialog';
 import { SecurityWarningDialog } from './security-warning-dialog';
 import { UrlConfirmationDialog } from './url-confirmation-dialog';
+import { MediaViewer } from './media-viewer';
 
 type View = 'home' | 'results';
 
@@ -50,6 +52,9 @@ export function SearchApp() {
 
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+
+  const [mediaViewerItem, setMediaViewerItem] = useState<MediaViewerItem | null>(null);
+  const [isMediaLoading, setIsMediaLoading] = useState(false);
 
   const handleSearch = useCallback(async (searchQuery: string, page: number = 1, filter: SearchType = 'all') => {
     if (!searchQuery.trim()) return;
@@ -93,17 +98,13 @@ export function SearchApp() {
             description: response.error,
         });
         setResults([]);
-        setIsLoading(false);
-        return;
-      }
-      
-      let items = response.items || [];
-
-      setResults(items);
-      if (response.searchInformation) {
-        const time = response.searchInformation.formattedSearchTime;
-        const total = response.searchInformation.formattedTotalResults;
-        setSearchInfo(time && total ? `Yaklaşık ${total} sonuç (${time} saniye)` : '');
+      } else if (response) {
+        setResults(response.items || []);
+        if (response.searchInformation) {
+          const time = response.searchInformation.formattedSearchTime;
+          const total = response.searchInformation.formattedTotalResults;
+          setSearchInfo(time && total ? `Yaklaşık ${total} sonuç (${time} saniye)` : '');
+        }
       }
     } catch (error) {
       console.error('Arama hatası:', error);
@@ -248,6 +249,38 @@ export function SearchApp() {
     openUrl(url, title);
   };
 
+  const handleVideoResultClick = (item: VideoSearchResultItem) => {
+    setMediaViewerItem({
+        type: 'video',
+        title: item.title,
+        sourceUrl: item.link,
+        mediaUrl: item.videoUrl, // Direct video URL if available
+        embedUrl: !item.videoUrl ? item.link : undefined, // Fallback to embedding page
+    });
+  }
+
+  const handleImageResultClick = async (item: ImageSearchResultItem) => {
+    setIsMediaLoading(true);
+    setMediaViewerItem({
+        type: 'image',
+        title: item.title,
+        sourceUrl: item.link,
+        mediaUrl: item.image.thumbnailLink, // Show thumbnail initially
+    });
+
+    const result = await getFullResolutionImage(item.link);
+    if ('imageUrl' in result) {
+        setMediaViewerItem(prev => prev ? { ...prev, mediaUrl: result.imageUrl } : null);
+    } else {
+        toast({
+            variant: "destructive",
+            title: "Tam Çözünürlük Yüklenemedi",
+            description: result.error,
+        });
+    }
+    setIsMediaLoading(false);
+  }
+
   const handleTabItemClick = (id: string) => {
     setActiveTab(id);
   };
@@ -319,6 +352,8 @@ export function SearchApp() {
               isLoading={isLoading}
               searchType={activeFilter}
               onResultClick={handleResultClick}
+              onVideoResultClick={handleVideoResultClick}
+              onImageResultClick={handleImageResultClick}
             />
             {results && results.length > 0 && !isLoading && (
               <Pagination
@@ -364,6 +399,15 @@ export function SearchApp() {
         onConfirm={(decision) => handleUrlConfirmation(decision)}
         url={urlConfirmation?.url || ''}
       />
+      <MediaViewer 
+        item={mediaViewerItem}
+        onClose={() => setMediaViewerItem(null)}
+      />
+      {isMediaLoading && (
+        <div className="fixed inset-0 z-[101] flex items-center justify-center bg-black/60">
+            <Loader2 className="h-8 w-8 animate-spin text-white" />
+        </div>
+      )}
     </div>
   );
 }
