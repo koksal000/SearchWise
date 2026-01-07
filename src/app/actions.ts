@@ -214,13 +214,8 @@ export async function searchNews({ query, page, safe }: SearchParams): Promise<S
 
 
 export async function searchVideos({ query, page, safe }: SearchParams): Promise<{ items: VideoSearchResultItem[] } & Omit<SearchResults, 'items'> | { error:string }> {
-    // Unlike other search types, video search via API requires a general search
-    // and then filtering for results that have a `videoobject` in their pagemap.
-    // The `tbm=vid` is not a standard parameter for the Custom Search JSON API.
-    // Therefore, we will rely on our scraping method for dedicated video searches
-    // and use the API as a fallback that filters general results.
     if (!API_KEY || !CX_ID) {
-      return fetchWithScraping(query, 'videos', safe, page) as Promise<{ items: VideoSearchResultItem[] } & Omit<SearchResults, 'items'> | { error:string }>;
+      return { error: "Video arama için Google API anahtarları ayarlanmamış." };
     }
 
     const params = new URLSearchParams({
@@ -232,22 +227,21 @@ export async function searchVideos({ query, page, safe }: SearchParams): Promise
         hl: 'en',
     });
 
-    // We can't use fetchFromApi directly because it would call scraping with 'videos', 
-    // which is what we are trying to do here in case of failure.
     let searchResult;
     try {
       const response = await fetch(`${API_URL}?${params.toString()}`);
       if (!response.ok) {
          if (response.status === 429) {
-            console.log("Google API quota for video search exceeded. Falling back to scraping.");
-            return fetchWithScraping(query, 'videos', safe, page) as Promise<{ items: VideoSearchResultItem[] } & Omit<SearchResults, 'items'> | { error:string }>;
+            return { error: "Video arama için Google API kotası aşıldı." };
          }
-         throw new Error(`API returned status ${response.status}`);
+         const errorData = await response.json();
+         throw new Error(errorData.error?.message || `API, ${response.status} durum koduyla yanıt verdi`);
       }
       searchResult = await response.json();
     } catch(e) {
-      console.log("Google API for video search failed. Falling back to scraping.");
-      return fetchWithScraping(query, 'videos', safe, page) as Promise<{ items: VideoSearchResultItem[] } & Omit<SearchResults, 'items'> | { error:string }>;
+      const message = e instanceof Error ? e.message : "Bilinmeyen bir ağ hatası oluştu.";
+      console.error("Video Arama API Hatası:", message);
+      return { error: `Video arama API'si ile bağlantı kurulamadı: ${message}` };
     }
     
     if ('error' in searchResult) {
@@ -272,10 +266,13 @@ export async function searchVideos({ query, page, safe }: SearchParams): Promise
             }
         });
         
-    // If API returns no video items, it's better to fallback to scraping
     if (videoItems.length === 0) {
-        console.log("API returned no video results, falling back to scraping.");
-        return fetchWithScraping(query, 'videos', safe, page) as Promise<{ items: VideoSearchResultItem[] } & Omit<SearchResults, 'items'> | { error:string }>;
+        return { 
+          ...searchResult, 
+          items: [],
+          // Provide a clear message to the user
+          error: `API sonuçları arasında video bulunamadı. Genel arama sonuçlarını görmek için "Tümü" filtresini deneyin.`
+        };
     }
 
     return { ...searchResult, items: videoItems };
