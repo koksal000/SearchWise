@@ -1,20 +1,18 @@
 'use client';
 
-import { SearchResultItem, SearchType, ImageSearchResultItem, VideoSearchResultItem } from '@/lib/types';
+import { SearchResultItem, SearchType, ImageSearchResultItem } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { WebResult } from './results/web-result';
 import { ImageResultsGrid } from './results/image-result';
-import { VideoResult } from './results/video-result';
 import { NewsResult } from './results/news-result';
 
 type SearchResultsProps = {
   query: string;
-  results: (SearchResultItem | ImageSearchResultItem | VideoSearchResultItem)[] | null;
+  results: (SearchResultItem | ImageSearchResultItem)[] | null;
   searchInfo: string;
   isLoading: boolean;
   searchType: SearchType;
-  onResultClick: (e: React.MouseEvent<HTMLAnchorElement>, url: string, title: string) => void;
-  onVideoResultClick: (item: VideoSearchResultItem) => void;
+  onResultClick: (e: React.MouseEvent<HTMLAnchorElement>, item: SearchResultItem) => void;
   onImageResultClick: (item: ImageSearchResultItem) => void;
 };
 
@@ -25,7 +23,6 @@ export function SearchResults({
   isLoading, 
   searchType,
   onResultClick,
-  onVideoResultClick,
   onImageResultClick,
 }: SearchResultsProps) {
   
@@ -52,14 +49,6 @@ export function SearchResults({
       case SearchType.IMAGES:
       case SearchType.GIF:
         return <ImageResultsGrid items={results as ImageSearchResultItem[]} onImageResultClick={onImageResultClick} />;
-      case SearchType.VIDEOS:
-        return (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {(results as VideoSearchResultItem[]).map((item, index) => (
-              <VideoResult key={index} item={item} onVideoResultClick={onVideoResultClick} />
-            ))}
-          </div>
-        );
       case SearchType.NEWS:
         return (
           <div className="flex flex-col gap-6 max-w-4xl mx-auto">
@@ -68,6 +57,7 @@ export function SearchResults({
             ))}
           </div>
         );
+      case SearchType.VIDEOS:
       case SearchType.ALL:
       default:
         return (

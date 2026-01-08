@@ -4,7 +4,7 @@ import { useState, useEffect, FormEvent, useRef, useCallback } from 'react';
 import { useSettings } from '@/hooks/use-settings';
 import { useHistory } from '@/hooks/use-history';
 import { useTabs } from '@/hooks/use-tabs';
-import { SearchResultItem, SearchType, ImageSearchResultItem, VideoSearchResultItem, MediaViewerItem } from '@/lib/types';
+import { SearchResultItem, SearchType, ImageSearchResultItem, VideoSearchResultItem, MediaViewerItem, VideoObject } from '@/lib/types';
 import { search, searchImages, searchVideos, searchNews, getFullResolutionImage, searchGifs } from '@/app/actions';
 import { getImageSearchTerms } from '@/ai/flows/get-image-search-terms';
 import { useToast } from '@/hooks/use-toast';
@@ -27,11 +27,15 @@ import { MediaViewer } from './media-viewer';
 
 type View = 'home' | 'results';
 
+const isVideoItem = (item: SearchResultItem): item is VideoSearchResultItem => {
+  return !!item.pagemap?.videoobject?.length;
+}
+
 export function SearchApp() {
   const [view, setView] = useState<View>('home');
   const [query, setQuery] = useState('');
   const [activeQuery, setActiveQuery] = useState('');
-  const [results, setResults] = useState<(SearchResultItem | ImageSearchResultItem | VideoSearchResultItem)[] | null>(null);
+  const [results, setResults] = useState<(SearchResultItem | ImageSearchResultItem)[] | null>(null);
   const [searchInfo, setSearchInfo] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -248,21 +252,30 @@ export function SearchApp() {
     handleNavigation(historyQuery);
   };
   
-  const handleResultClick = (e: React.MouseEvent<HTMLAnchorElement>, url: string, title: string) => {
+  const handleResultClick = (e: React.MouseEvent<HTMLAnchorElement>, item: SearchResultItem) => {
     if (settings.inAppWebView) {
       e.preventDefault();
-      openUrl(url, title);
+      
+      // If it's a video result under the video tab, open in media viewer
+      if (activeFilter === SearchType.VIDEOS && isVideoItem(item)) {
+        handleVideoResultClick(item as VideoSearchResultItem);
+        return;
+      }
+      
+      // Otherwise, open in web viewer
+      openUrl(item.link, item.title);
     }
     // If in-app webview is off, the default <a> behavior will handle it.
   };
 
   const handleVideoResultClick = (item: VideoSearchResultItem) => {
+    const videoObject: VideoObject | undefined = item.pagemap?.videoobject?.[0];
     setMediaViewerItem({
         type: 'video',
         title: item.title,
         sourceUrl: item.link,
-        mediaUrl: item.videoUrl, // Direct video URL from API
-        embedUrl: item.embedUrl || item.link, // Fallback to embed URL or the page link
+        mediaUrl: videoObject?.contenturl || item.videoUrl, // Prioritize contenturl from API
+        embedUrl: videoObject?.embedurl || item.embedUrl, // Fallback to embedUrl
     });
   }
 
@@ -367,7 +380,6 @@ export function SearchApp() {
               isLoading={isLoading}
               searchType={activeFilter}
               onResultClick={handleResultClick}
-              onVideoResultClick={handleVideoResultClick}
               onImageResultClick={handleImageResultClick}
             />
             {results && results.length > 0 && !isLoading && (

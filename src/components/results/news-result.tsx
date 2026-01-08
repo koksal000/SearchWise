@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 
 type NewsResultProps = {
   item: SearchResultItem;
-  onResultClick: (e: React.MouseEvent<HTMLAnchorElement>, url: string, title: string) => void;
+  onResultClick: (e: React.MouseEvent<HTMLAnchorElement>, item: SearchResultItem) => void;
 };
 
 function getTimeAgo(dateString?: string): string {
@@ -35,7 +35,7 @@ export function NewsResult({ item, onResultClick }: NewsResultProps) {
   return (
     <a
       href={item.link}
-      onClick={(e) => onResultClick(e, item.link, item.title)}
+      onClick={(e) => onResultClick(e, item)}
       className="group block"
     >
       <Card className="flex flex-col md:flex-row overflow-hidden transition-all duration-300 group-hover:shadow-xl">

@@ -1,11 +1,11 @@
 'use client';
 
 import { SearchResultItem } from "@/lib/types";
-import { Globe } from "lucide-react";
+import { Globe, PlayCircle } from "lucide-react";
 
 type WebResultProps = {
   item: SearchResultItem;
-  onResultClick: (e: React.MouseEvent<HTMLAnchorElement>, url: string, title: string) => void;
+  onResultClick: (e: React.MouseEvent<HTMLAnchorElement>, item: SearchResultItem) => void;
 };
 
 function getFaviconUrl(url: string) {
@@ -19,12 +19,13 @@ function getFaviconUrl(url: string) {
 
 export function WebResult({ item, onResultClick }: WebResultProps) {
     const faviconUrl = getFaviconUrl(item.link);
+    const isVideo = !!item.pagemap?.videoobject?.length;
 
   return (
     <div className="max-w-2xl">
       <a
         href={item.link}
-        onClick={(e) => onResultClick(e, item.link, item.title)}
+        onClick={(e) => onResultClick(e, item)}
         className="group"
       >
         <div className="flex items-center gap-2 mb-1">
@@ -38,7 +39,8 @@ export function WebResult({ item, onResultClick }: WebResultProps) {
                 <span className="text-xs text-muted-foreground truncate">{item.displayLink}</span>
             </div>
         </div>
-        <h3 className="text-lg font-medium text-primary group-hover:underline truncate">
+        <h3 className="text-lg font-medium text-primary group-hover:underline truncate flex items-center gap-2">
+          {isVideo && <PlayCircle className="h-5 w-5 text-primary/80 flex-shrink-0" />}
           {item.title}
         </h3>
       </a>
