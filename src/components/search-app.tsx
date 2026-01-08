@@ -249,8 +249,11 @@ export function SearchApp() {
   };
   
   const handleResultClick = (e: React.MouseEvent<HTMLAnchorElement>, url: string, title: string) => {
-    e.preventDefault();
-    openUrl(url, title);
+    if (settings.inAppWebView) {
+      e.preventDefault();
+      openUrl(url, title);
+    }
+    // If in-app webview is off, the default <a> behavior will handle it.
   };
 
   const handleVideoResultClick = (item: VideoSearchResultItem) => {
