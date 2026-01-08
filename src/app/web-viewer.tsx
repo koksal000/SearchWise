@@ -144,7 +144,7 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
         loadContent(tab.url, 'history');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, loadContent]);
+  }, [tab]);
   
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -168,8 +168,12 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
   };
 
   const switchMode = () => {
-    const isForcingProxy = viewMode !== 'proxied';
-    reload(isForcingProxy);
+    // If we are not in proxied mode, switch to it. Otherwise, switch back to direct.
+    if (viewMode !== 'proxied') {
+      reload(true); // Force proxy mode
+    } else {
+      reload(false); // Go back to default (direct) mode
+    }
   }
 
   const goBack = () => {
