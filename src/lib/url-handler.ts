@@ -1,4 +1,5 @@
 
+
 const COMMON_TLDS = ['com', 'org', 'net', 'tk', 'vercel.app', 'app', 'io', 'dev', 'co', 'gov', 'edu', 'ai'];
 
 export function isValidUrl(query: string): boolean {
@@ -36,4 +37,13 @@ export function normalizeUrl(query: string): string {
         }
     }
     return url;
+}
+
+
+export function getDomain(url: string): string | null {
+  try {
+    return new URL(url).hostname;
+  } catch (e) {
+    return null;
+  }
 }

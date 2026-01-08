@@ -13,7 +13,7 @@ type SearchResultsProps = {
   searchInfo: string;
   isLoading: boolean;
   searchType: SearchType;
-  onResultClick: (url: string, title: string) => void;
+  onResultClick: (e: React.MouseEvent<HTMLAnchorElement>, url: string, title: string) => void;
   onVideoResultClick: (item: VideoSearchResultItem) => void;
   onImageResultClick: (item: ImageSearchResultItem) => void;
 };

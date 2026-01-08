@@ -248,7 +248,8 @@ export function SearchApp() {
     handleNavigation(historyQuery);
   };
   
-  const handleResultClick = (url: string, title: string) => {
+  const handleResultClick = (e: React.MouseEvent<HTMLAnchorElement>, url: string, title: string) => {
+    e.preventDefault();
     openUrl(url, title);
   };
 
@@ -258,7 +259,7 @@ export function SearchApp() {
         title: item.title,
         sourceUrl: item.link,
         mediaUrl: item.videoUrl, // Direct video URL from API
-        embedUrl: item.embedUrl, // Fallback to embed URL
+        embedUrl: item.embedUrl || item.link, // Fallback to embed URL or the page link
     });
   }
 

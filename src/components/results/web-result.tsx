@@ -5,7 +5,7 @@ import { Globe } from "lucide-react";
 
 type WebResultProps = {
   item: SearchResultItem;
-  onResultClick: (url: string, title: string) => void;
+  onResultClick: (e: React.MouseEvent<HTMLAnchorElement>, url: string, title: string) => void;
 };
 
 function getFaviconUrl(url: string) {
@@ -35,10 +35,7 @@ export function WebResult({ item, onResultClick }: WebResultProps) {
       </div>
       <a
         href={item.link}
-        onClick={(e) => {
-          e.preventDefault();
-          onResultClick(item.link, item.title);
-        }}
+        onClick={(e) => onResultClick(e, item.link, item.title)}
         className="group"
       >
         <h3 className="text-lg font-medium text-primary group-hover:underline truncate">

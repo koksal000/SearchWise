@@ -20,6 +20,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { getDomain } from '@/lib/url-handler';
 
 type WebViewerProps = {
   tab: TabItem | undefined;
@@ -27,11 +28,12 @@ type WebViewerProps = {
   onNavigate: (query: string) => void;
 };
 
-type ViewMode = 'direct' | 'proxied' | 'loading';
+type ViewMode = 'direct' | 'proxied';
+type LoadingState = 'idle' | 'loading';
 
 export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
   const [displayUrl, setDisplayUrl] = useState(tab?.url || '');
-  const [viewMode, setViewMode] = useState<ViewMode>('loading');
+  const [viewMode, setViewMode] = useState<ViewMode | null>(null);
   const [srcDocContent, setSrcDocContent] = useState('');
   const [viewKey, setViewKey] = useState(Date.now());
   const [isCloseConfirmationOpen, setCloseConfirmationOpen] = useState(false);
@@ -39,10 +41,10 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
 
+  const [loadingState, setLoadingState] = useState<LoadingState>('idle');
   const [progress, setProgress] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
+  
   const { toast } = useToast();
   
   const currentUrl = useMemo(() => history[historyIndex] || '', [history, historyIndex]);
@@ -51,7 +53,7 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
   const canGoForward = historyIndex < history.length - 1;
 
   const startLoading = useCallback(() => {
-    setIsLoading(true);
+    setLoadingState('loading');
     setProgress(10);
     if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
     progressIntervalRef.current = setInterval(() => {
@@ -69,12 +71,19 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
     if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
     setProgress(100);
     setTimeout(() => {
-      setIsLoading(false);
+      setLoadingState('idle');
       setProgress(0);
     }, 500);
   }, []);
 
-  const loadContent = useCallback(async (url: string, navigationType: 'new' | 'history' = 'new', forceProxy: boolean = false) => {
+  const loadContent = useCallback(async (url: string, {
+    navigationType = 'new',
+    forceMode,
+  }: {
+    navigationType?: 'new' | 'history' | 'reload';
+    forceMode?: ViewMode;
+  } = {}) => {
+    
     startLoading();
     setDisplayUrl(url);
     setViewKey(Date.now());
@@ -90,13 +99,17 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
     }
 
     try {
+        const forceProxy = forceMode === 'proxied';
         const result = await fetchPageContent(url, forceProxy);
         
         if ('error' in result) {
             throw new Error(result.error);
         }
+        
+        const newViewMode = result.viewMode;
+        setViewMode(newViewMode);
 
-        if (result.viewMode === 'proxied') {
+        if (newViewMode === 'proxied') {
             const baseTag = `<base href="${new URL(url).origin}">`;
             const navigationInterceptorScript = `
                 <script>
@@ -107,6 +120,7 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
                     }
                     if (target && target.href) {
                       e.preventDefault();
+                      // Only post message for http/https links to avoid javascript: links
                       if (target.protocol === 'http:' || target.protocol === 'https:') {
                         window.parent.postMessage({ type: 'navigate', url: target.href }, '*');
                       }
@@ -115,10 +129,8 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
                 <\/script>
               `;
             setSrcDocContent(baseTag + navigationInterceptorScript + result.content);
-            setViewMode('proxied');
             finishLoading();
         } else { // direct
-            setViewMode('direct');
             // finishLoading will be called by the iframe's onLoad event
         }
 
@@ -141,7 +153,7 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
     if (tab && tab.url !== currentUrl) {
         setHistory([tab.url]);
         setHistoryIndex(0);
-        loadContent(tab.url, 'history');
+        loadContent(tab.url, { navigationType: 'history' });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
@@ -150,7 +162,14 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
     const handleMessage = (event: MessageEvent) => {
       if (event.data && event.data.type === 'navigate' && event.data.url) {
         const newUrl = new URL(event.data.url, currentUrl).href;
-        loadContent(newUrl, 'new');
+        
+        // If domain is different, reset the view mode logic.
+        const shouldResetMode = getDomain(newUrl) !== getDomain(currentUrl);
+
+        loadContent(newUrl, { 
+            navigationType: 'new',
+            forceMode: shouldResetMode ? undefined : viewMode ?? undefined
+        });
       }
     };
 
@@ -159,28 +178,28 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
       window.removeEventListener('message', handleMessage);
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
     };
-  }, [loadContent, currentUrl]);
+  }, [loadContent, currentUrl, viewMode]);
   
-  const reload = (forceProxy = false) => {
+  const reload = () => {
     if (currentUrl) {
-      loadContent(currentUrl, 'history', forceProxy);
+      loadContent(currentUrl, { navigationType: 'reload' });
     }
   };
 
   const switchMode = () => {
-    // If we are not in proxied mode, switch to it. Otherwise, switch back to direct.
-    if (viewMode !== 'proxied') {
-      reload(true); // Force proxy mode
-    } else {
-      reload(false); // Go back to default (direct) mode
-    }
+    if (!currentUrl) return;
+    const newMode = viewMode === 'proxied' ? 'direct' : 'proxied';
+    loadContent(currentUrl, { 
+        navigationType: 'reload', 
+        forceMode: newMode 
+    });
   }
 
   const goBack = () => {
     if (canGoBack) {
       const newIndex = historyIndex - 1;
       setHistoryIndex(newIndex);
-      loadContent(history[newIndex], 'history');
+      loadContent(history[newIndex], { navigationType: 'history' });
     }
   }
 
@@ -188,7 +207,7 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
       if (canGoForward) {
           const newIndex = historyIndex + 1;
           setHistoryIndex(newIndex);
-          loadContent(history[newIndex], 'history');
+          loadContent(history[newIndex], { navigationType: 'history' });
       }
   }
   
@@ -202,6 +221,8 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
   }
 
   if (!tab) return null;
+
+  const isLoading = loadingState === 'loading';
 
   return (
     <>
@@ -272,7 +293,7 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
                   <Loader2 className="h-8 w-8 animate-spin text-primary"/>
               </div>
           )}
-          <iframe
+          {viewMode && <iframe
             key={viewKey}
             onLoad={() => {
                 if (viewMode === 'direct') finishLoading();
@@ -283,7 +304,7 @@ export function WebViewer({ tab, onClose, onNavigate }: WebViewerProps) {
             className="h-full w-full border-0"
             sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-presentation"
             style={{ visibility: (isLoading && viewMode !== 'proxied') ? 'hidden' : 'visible' }}
-          />
+          />}
         </div>
       </div>
       <AlertDialog open={isCloseConfirmationOpen} onOpenChange={setCloseConfirmationOpen}>
