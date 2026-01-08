@@ -1,6 +1,6 @@
 'use client';
 
-import { SearchResultItem, SearchType, ImageSearchResultItem } from '@/lib/types';
+import { SearchResultItem, SearchType, ImageSearchResultItem, VideoSearchResultItem } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { WebResult } from './results/web-result';
 import { ImageResultsGrid } from './results/image-result';

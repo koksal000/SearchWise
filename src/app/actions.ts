@@ -1,7 +1,7 @@
 'use server';
 
 import { canBeIframed } from '@/ai/flows/can-be-iframed';
-import { extractScrapedResults, extractVideoData, extractFullResolutionImage } from '@/lib/scraping-service';
+import { extractScrapedResults, extractFullResolutionImage } from '@/lib/scraping-service';
 import { SearchResults, ImageSearchResults, VideoSearchResultItem, SearchResultItem, SearchType, ImageSearchResultItemImage, VideoObject } from '@/lib/types';
 
 const API_KEY = process.env.GOOGLE_API_KEY;
@@ -210,72 +210,6 @@ export async function searchNews({ query, page, safe }: SearchParams): Promise<S
       sort: 'date',
     });
     return fetchFromApi(params, query, 'news', safe, page);
-}
-
-
-export async function searchVideos({ query, page, safe }: SearchParams): Promise<{ items: VideoSearchResultItem[] } & Omit<SearchResults, 'items'> | { error:string }> {
-    if (!API_KEY || !CX_ID) {
-      return { error: "Video arama için Google API anahtarları ayarlanmamış." };
-    }
-
-    const params = new URLSearchParams({
-        key: API_KEY!,
-        cx: CX_ID!,
-        q: query,
-        start: ((page - 1) * 10 + 1).toString(),
-        safe,
-        hl: 'en',
-    });
-
-    let searchResult;
-    try {
-      const response = await fetch(`${API_URL}?${params.toString()}`);
-      if (!response.ok) {
-         if (response.status === 429) {
-            return { error: "Video arama için Google API kotası aşıldı." };
-         }
-         const errorData = await response.json();
-         throw new Error(errorData.error?.message || `API, ${response.status} durum koduyla yanıt verdi`);
-      }
-      searchResult = await response.json();
-    } catch(e) {
-      const message = e instanceof Error ? e.message : "Bilinmeyen bir ağ hatası oluştu.";
-      console.error("Video Arama API Hatası:", message);
-      return { error: `Video arama API'si ile bağlantı kurulamadı: ${message}` };
-    }
-    
-    if ('error' in searchResult) {
-        return searchResult;
-    }
-    
-    if (!searchResult.items) {
-        return { ...searchResult, items: [] };
-    }
-
-    const videoItems: VideoSearchResultItem[] = searchResult.items
-        .filter((item: SearchResultItem) => item.pagemap?.videoobject?.length > 0)
-        .map((item: SearchResultItem) => {
-            const videoObject: VideoObject = item.pagemap!.videoobject![0];
-            return {
-                ...item,
-                videoUrl: videoObject.contenturl,
-                embedUrl: videoObject.embedurl,
-                coverImageUrl: videoObject.thumbnailurl,
-                duration: videoObject.duration,
-                uploadDate: videoObject.uploaddate,
-            }
-        });
-        
-    if (videoItems.length === 0) {
-        return { 
-          ...searchResult, 
-          items: [],
-          // Provide a clear message to the user
-          error: `API sonuçları arasında video bulunamadı. Genel arama sonuçlarını görmek için "Tümü" filtresini deneyin.`
-        };
-    }
-
-    return { ...searchResult, items: videoItems };
 }
 
 export async function fetchPageContent(url: string, forceProxy: boolean = false): Promise<{content: string, viewMode: 'direct' | 'proxied'} | {error: string}> {

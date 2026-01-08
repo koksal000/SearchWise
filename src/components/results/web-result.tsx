@@ -39,7 +39,7 @@ export function WebResult({ item, onResultClick }: WebResultProps) {
                 <span className="text-xs text-muted-foreground truncate">{item.displayLink}</span>
             </div>
         </div>
-        <h3 className="text-lg font-medium text-primary group-hover:underline truncate flex items-center gap-2">
+        <h3 className="text-lg font-medium text-primary group-hover:underline flex items-center gap-2">
           {isVideo && <PlayCircle className="h-5 w-5 text-primary/80 flex-shrink-0" />}
           {item.title}
         </h3>
